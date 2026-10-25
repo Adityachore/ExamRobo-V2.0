@@ -1,0 +1,12 @@
+{
+  "central_skills_repo": "/home/ronith/Desktop/Projects/portable-brain-agent/Brain/skills",
+  "central_mcp_repo": "/home/ronith/Desktop/Projects/portable-brain-agent/Brain/mcp",
+  "auto_sync": true,
+  "version": 1,
+  "domain": "coding",
+  "extra_domains": "",
+  "installed_domains": "coding shared",
+  "installed_agents": 18,
+  "installed_skills": 862,
+  "xcmd": true
+}

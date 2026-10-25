@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: examrobo
+      POSTGRES_PASSWORD: examrobo
+      POSTGRES_DB: examrobo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5450:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U examrobo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./server
+    environment:
+      DATABASE_URL: postgres://examrobo:examrobo@db:5432/examrobo
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      RECORDINGS_DIR: /data/recordings
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      SEB_REQUIRED: ${SEB_REQUIRED:-false}
+      SEB_CONFIG_KEY: ${SEB_CONFIG_KEY:-}
+      SEB_CONFIG_FILE: /app/assets/exam.seb
+      SEB_START_URL: ${SEB_START_URL:-}
+      NODE_ENV: ${NODE_ENV:-production}
+    volumes:
+      - recordings:/data/recordings
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+
+  web:
+    build: ./web
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  redisdata:
+  recordings:
