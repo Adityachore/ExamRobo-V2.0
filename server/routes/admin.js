@@ -1,23 +1,56 @@
 ﻿import { Router } from 'express';
 import { wrapRouter } from '../middleware/async.js';
 import fs from 'node:fs/promises';
-import { q } from '../db.js';
+import path from 'node:path';
+import { q, withTransaction } from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
-import { sessionViews, sessionViewById, eventViews, eventViewOf, feedViews, recordingViews } from '../services/views.js';
+import { normalizeEventInput, unknownCategories } from '../services/event-config.js';
+import { sessionViews, sessionViewById, eventViews, eventViewOf, feedViews } from '../services/views.js';
 import { gradePaper, gradeMany } from '../services/grading.js';
 import { competencyByPaper, cohortOf } from '../services/analytics.js';
 import { submitPaper, logProctorEvent } from '../services/sessions.js';
 import { lockPaper } from '../services/integrity.js';
+import { removeRosterStudent, restartPaper, resumePaper } from '../services/attempts.js';
 import { toStudent } from '../services/live.js';
 import { CATEGORIES } from '../services/competency.js';
 
 const router = Router();
 router.use(requireAdmin);
 
+const RECORDINGS_DIR =
+  process.env.RECORDINGS_DIR || path.join(process.cwd(), 'data', 'recordings');
 
 const emailRe = /^\S+@\S+\.\S+$/;
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const normalize = (email) => String(email || '').trim().toLowerCase();
+
+async function knownCategorySet() {
+  const { rows } = await q(`SELECT DISTINCT category FROM questions`);
+  return new Set([...CATEGORIES, ...rows.map((r) => r.category)]);
+}
+
+async function recordAction(db, req, action, detail = {}) {
+  await db.query(
+    `INSERT INTO admin_actions (actor_email, action, event_id, paper_id, target_email, reason, detail)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [
+      req.user?.sub || 'admin',
+      action,
+      detail.event_id || null,
+      detail.paper_id || null,
+      detail.email || null,
+      detail.reason || null,
+      detail.detail || {},
+    ],
+  );
+}
+
+async function removeRecordingDirs(paperIds) {
+  for (const id of paperIds) {
+    if (!uuidRe.test(String(id))) continue;
+    await fs.rm(path.join(RECORDINGS_DIR, id), { recursive: true, force: true }).catch(() => {});
+  }
+}
 
 // The dashboard keys a session by "<event_id>:<email>".
 async function paperFromKey(key) {
@@ -36,6 +69,18 @@ function eventIdFromQuery(value) {
   return uuidRe.test(raw) ? raw : null;
 }
 
+async function eventWithCounts(id) {
+  const { rows } = await q(
+    `SELECT e.*,
+            (SELECT count(*) FROM roster_emails r WHERE r.event_id = e.id AND r.removed_at IS NULL)::int AS roster_count,
+            (SELECT count(*) FROM papers p WHERE p.event_id = e.id)::int AS paper_count
+       FROM exam_events e
+      WHERE e.id = $1`,
+    [id],
+  );
+  return rows[0] || null;
+}
+
 // ---------------------------------------------------------------- events
 
 router.get('/events', async (_req, res) => {
@@ -43,163 +88,509 @@ router.get('/events', async (_req, res) => {
 });
 
 router.post('/events', async (req, res) => {
-  const name = String(req.body?.name || '').trim();
-  const startsAt = req.body?.starts_at;
-  const durationMin = Number(req.body?.duration_min);
-  const config =
-    req.body?.config && typeof req.body.config === 'object' && !Array.isArray(req.body.config)
-      ? req.body.config
-      : {};
+  const input = normalizeEventInput(req.body);
+  if (!input.ok) return res.status(400).json({ error: 'Please fix the highlighted fields.', fields: input.fields });
 
-  // Domain selection (R-015). A domain-aware event lets the student choose
-  // the technical domains; the common categories are always included.
-  const domainMode = req.body?.domain_mode === 'select' ? 'select' : 'fixed';
-  const rulesIn = req.body?.domain_rules && typeof req.body.domain_rules === 'object' ? req.body.domain_rules : {};
-  const domainRules =
-    domainMode === 'select'
-      ? {
-          common: (Array.isArray(rulesIn.common) ? rulesIn.common : []).filter((c) => typeof c === 'string' && c),
-          allowed: (Array.isArray(rulesIn.allowed) ? rulesIn.allowed : []).filter((c) => typeof c === 'string' && c),
-          min: Number(rulesIn.min) > 0 ? Number(rulesIn.min) : 1,
-          max: Number(rulesIn.max) > 0 ? Number(rulesIn.max) : 1,
-        }
-      : {};
-
-  const fields = {};
-  if (!name) fields.name = 'Name is required.';
-
-  if (!startsAt || Number.isNaN(Date.parse(startsAt))) {
-    fields.starts_at = 'Start date and time are required.';
-  }
-  if (!(durationMin > 0)) fields.duration_min = 'Duration must be greater than 0 minutes.';
-  if (!Object.keys(config).length) {
-    fields.config = 'Add at least one category.';
-  } else {
-    const { rows } = await q(`SELECT DISTINCT category FROM questions`);
-    const known = new Set([...CATEGORIES, ...rows.map((r) => r.category)]);
-    for (const [category, count] of Object.entries(config)) {
-      if (!known.has(category)) {
-        fields.config = `Unknown category: ${category}.`;
-        break;
-      }
-      if (!(Number(count) > 0)) {
-        fields.config = `Question count for ${category} must be at least 1.`;
-        break;
-      }
-    }
-  }
-  if (Object.keys(fields).length) {
-    return res.status(400).json({ error: 'Please fix the highlighted fields.', fields });
+  const unknown = unknownCategories(input.value, await knownCategorySet());
+  if (unknown.length) {
+    return res.status(400).json({
+      error: 'Please fix the highlighted fields.',
+      fields: { config: `Unknown category: ${unknown.join(', ')}.` },
+    });
   }
 
-  // A domain-aware event needs at least one selectable domain, and every
-  // common category and every selectable domain needs a question count.
-  if (domainMode === 'select') {
-    if (!domainRules.allowed.length) {
-      fields.domain_rules = 'Choose at least one technical domain the student may pick.';
-    }
-    if (domainRules.max < domainRules.min) {
-      fields.domain_rules = 'The maximum number of domains must not be smaller than the minimum.';
-    }
-    const needed = [...new Set([...domainRules.common, ...domainRules.allowed])];
-    for (const category of needed) {
-      if (!(Number(config[category] || 0) > 0)) {
-        fields.domain_rules = `Set a question count for ${category} - it is part of the domain selection.`;
-        break;
-      }
-    }
-  }
-  if (Object.keys(fields).length) {
-    return res.status(400).json({ error: 'Please fix the highlighted fields.', fields });
+  const value = input.value;
+  const { rows } = await withTransaction(async (client) => {
+    const inserted = await client.query(
+      `INSERT INTO exam_events
+         (name, starts_at, duration_min, categories, question_counts, domain_mode,
+          domain_rules, section_limits, results_visibility, instructions)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [
+        value.name,
+        value.starts_at,
+        value.duration_min,
+        value.categories,
+        value.question_counts,
+        value.domain_mode,
+        value.domain_rules,
+        value.section_limits,
+        value.results_visibility,
+        value.instructions,
+      ],
+    );
+    await recordAction(client, req, 'event.create', {
+      event_id: inserted.rows[0].id,
+      detail: { name: value.name },
+    });
+    return inserted;
+  });
+  res.status(201).json({ event: eventViewOf({ ...rows[0], roster_count: 0, paper_count: 0 }) });
+});
+
+router.patch('/events/:id', async (req, res) => {
+  if (!uuidRe.test(req.params.id)) return res.status(404).json({ error: 'Event not found.' });
+  const { rows } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
+  const event = rows[0];
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
+
+  const { rows: started } = await q(`SELECT count(*)::int AS n FROM papers WHERE event_id = $1`, [event.id]);
+  if (started[0].n > 0) {
+    return res.status(409).json({
+      error: 'This event already has student papers and can no longer be edited.',
+      code: 'event_started',
+    });
   }
 
-  const categories =
-    domainMode === 'select'
-      ? [...new Set([...domainRules.common, ...domainRules.allowed])]
-      : Object.keys(config);
+  const input = normalizeEventInput(req.body, event);
+  if (!input.ok) return res.status(400).json({ error: 'Please fix the highlighted fields.', fields: input.fields });
 
-  const { rows } = await q(
-    `INSERT INTO exam_events (name, starts_at, duration_min, categories, question_counts, domain_mode, domain_rules)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [
-      name,
-      new Date(startsAt),
-      durationMin,
-      categories,
-      config,
-      domainMode,
-      domainRules,
-    ],
+  const unknown = unknownCategories(input.value, await knownCategorySet());
+  if (unknown.length) {
+    return res.status(400).json({
+      error: 'Please fix the highlighted fields.',
+      fields: { config: `Unknown category: ${unknown.join(', ')}.` },
+    });
+  }
+
+  const value = input.value;
+  const updated = await withTransaction(async (client) => {
+    const result = await client.query(
+      `UPDATE exam_events
+          SET name=$2, starts_at=$3, duration_min=$4, categories=$5, question_counts=$6,
+              domain_mode=$7, domain_rules=$8, section_limits=$9, instructions=$10,
+              results_visibility=$11
+        WHERE id=$1
+        RETURNING *`,
+      [
+        event.id,
+        value.name,
+        value.starts_at,
+        value.duration_min,
+        value.categories,
+        value.question_counts,
+        value.domain_mode,
+        value.domain_rules,
+        value.section_limits,
+        value.instructions,
+        value.results_visibility,
+      ],
+    );
+    await recordAction(client, req, 'event.update', {
+      event_id: event.id,
+      detail: { name: value.name },
+    });
+    return result.rows[0];
+  });
+
+  res.json({ event: eventViewOf({ ...updated, roster_count: 0, paper_count: 0 }) });
+});
+
+const RESULT_PRESETS = {
+  '1h': (d) => new Date(d.getTime() + 60 * 60 * 1000),
+  '6h': (d) => new Date(d.getTime() + 6 * 60 * 60 * 1000),
+  '1d': (d) => new Date(d.getTime() + 24 * 60 * 60 * 1000),
+  '7d': (d) => new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000),
+  '14d': (d) => new Date(d.getTime() + 14 * 24 * 60 * 60 * 1000),
+  '30d': (d) => new Date(d.getTime() + 30 * 24 * 60 * 60 * 1000),
+};
+
+function resultExpiry(body) {
+  const preset = String(body?.preset || '').trim();
+  if (preset && RESULT_PRESETS[preset]) return RESULT_PRESETS[preset](new Date());
+  if (!body?.expires_at) return null;
+  const date = new Date(body.expires_at);
+  if (Number.isNaN(date.getTime())) return { error: 'Invalid expiry date and time.' };
+  if (date.getTime() <= Date.now()) return { error: 'Expiry time must be in the future.' };
+  return date;
+}
+
+async function publishResults(req, res, event) {
+  const remaining = await q(
+    `SELECT count(*)::int AS n FROM papers WHERE event_id = $1 AND status <> 'submitted'`,
+    [event.id],
   );
-  res.status(201).json({ event: eventViewOf({ ...rows[0], roster_count: 0 }) });
+  if (Number(remaining.rows[0].n) > 0) {
+    return res.status(409).json({
+      error: 'All students must submit before publishing results.',
+      code: 'results_not_ready',
+    });
+  }
+
+  const expiry = resultExpiry(req.body);
+  if (expiry?.error) return res.status(400).json({ error: expiry.error });
+  if (!expiry) {
+    return res.status(400).json({
+      error: 'Choose an expiry time before publishing results.',
+      code: 'results_expiry_required',
+    });
+  }
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE exam_events
+          SET results_published = true,
+              results_published_at = COALESCE(results_published_at, now()),
+              results_published_by = COALESCE(results_published_by, $2),
+              results_expires_at = $3
+        WHERE id = $1`,
+      [event.id, req.user?.sub || 'admin', expiry],
+    );
+    await recordAction(client, req, 'results.publish', {
+      event_id: event.id,
+      detail: { name: event.name, expires_at: expiry.toISOString() },
+    });
+  });
+
+  const fresh = await eventWithCounts(event.id);
+  return res.json({ ok: true, event: eventViewOf(fresh) });
+}
+
+async function unpublishResults(req, res, event) {
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE exam_events
+          SET results_published = false,
+              results_published_at = NULL,
+              results_published_by = NULL,
+              results_expires_at = NULL
+        WHERE id = $1`,
+      [event.id],
+    );
+    await recordAction(client, req, 'results.unpublish', {
+      event_id: event.id,
+      detail: { name: event.name },
+    });
+  });
+  const fresh = await eventWithCounts(event.id);
+  return res.json({ ok: true, event: eventViewOf(fresh) });
+}
+
+// Manual publish/extend/unpublish. Publication no longer waits for the event
+// clock: it is allowed once every existing paper is submitted.
+router.post('/events/:id/publish-results', async (req, res) => {
+  const event = await eventWithCounts(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
+  if ((event.results_visibility || 'manual') !== 'manual') {
+    return res.status(400).json({
+      error: 'This event is not set to manual result publishing.',
+      code: 'not_manual',
+    });
+  }
+  return publishResults(req, res, event);
+});
+
+router.post('/events/:id/results/extend', async (req, res) => {
+  const event = await eventWithCounts(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
+  if ((event.results_visibility || 'manual') !== 'manual') {
+    return res.status(400).json({ error: 'This event is not set to manual result publishing.' });
+  }
+  if (!event.results_published_at) {
+    return res.status(409).json({ error: 'Results have not been published yet.' });
+  }
+  const expiry = resultExpiry(req.body);
+  if (expiry?.error) return res.status(400).json({ error: expiry.error });
+  if (!expiry) return res.status(400).json({ error: 'Choose a new expiry time.' });
+
+  await withTransaction(async (client) => {
+    await client.query(`UPDATE exam_events SET results_expires_at = $2 WHERE id = $1`, [
+      event.id,
+      expiry,
+    ]);
+    await recordAction(client, req, 'results.extend', {
+      event_id: event.id,
+      detail: { name: event.name, expires_at: expiry.toISOString() },
+    });
+  });
+  const fresh = await eventWithCounts(event.id);
+  res.json({ ok: true, event: eventViewOf(fresh) });
+});
+
+router.post('/events/:id/results/unpublish', async (req, res) => {
+  const event = await eventWithCounts(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
+  return unpublishResults(req, res, event);
+});
+
+// Backwards-compatible boolean endpoint used by older admin screens.
+router.post('/events/:id/results', async (req, res) => {
+  const event = await eventWithCounts(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
+  if (typeof req.body?.published !== 'boolean') {
+    return res.status(400).json({ error: 'published must be true or false.' });
+  }
+  if (req.body.published) {
+    if ((event.results_visibility || 'manual') !== 'manual') {
+      return res.status(400).json({ error: 'This event is not set to manual result publishing.' });
+    }
+    return publishResults(req, res, event);
+  }
+  return unpublishResults(req, res, event);
+});
+
+router.delete('/events/:id', async (req, res) => {
+  if (!uuidRe.test(req.params.id)) return res.status(404).json({ error: 'Event not found.' });
+  const { rows } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
+  const event = rows[0];
+  if (!event) return res.status(404).json({ error: 'Event not found.' });
+
+  if (String(req.body?.confirm_name || '') !== event.name) {
+    return res.status(400).json({
+      error: 'Type the event name exactly to confirm deletion.',
+      fields: { confirm_name: 'The name does not match.' },
+    });
+  }
+
+  const { rows: papers } = await q(
+    `SELECT id, email, status FROM papers WHERE event_id = $1`,
+    [event.id],
+  );
+
+  await withTransaction(async (client) => {
+    await recordAction(client, req, 'event.delete', {
+      event_id: event.id,
+      reason: String(req.body?.reason || '').trim() || null,
+      detail: { name: event.name, papers: papers.length },
+    });
+    await client.query(`DELETE FROM papers WHERE event_id = $1`, [event.id]);
+    await client.query(`DELETE FROM exam_events WHERE id = $1`, [event.id]);
+  });
+
+  await removeRecordingDirs(papers.map((p) => p.id));
+  for (const paper of papers) {
+    if (paper.status === 'active') {
+      toStudent(paper.email, {
+        type: 'removed',
+        reason: 'This event was deleted by the administrator.',
+        final: true,
+      });
+    }
+  }
+
+  res.json({ ok: true, deleted: event.id });
 });
 
 
 // ---------------------------------------------------------------- roster
+
+function rosterView(row) {
+  return {
+    email: row.email,
+    name: row.name,
+    updated_at: row.updated_at,
+    removed_at: row.removed_at || null,
+    removed_reason: row.removed_reason || null,
+    removed_by: row.removed_by || null,
+    removed: !!row.removed_at,
+    has_paper: !!row.has_paper,
+  };
+}
+
+async function touchRoster(eventId) {
+  await q(`UPDATE exam_events SET roster_updated_at = now() WHERE id = $1`, [eventId]);
+}
 
 router.get('/events/:id/roster', async (req, res) => {
   const { rows: events } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
   if (!events.length) return res.status(404).json({ error: 'Event not found.' });
 
   const { rows } = await q(
-    `SELECT email, name, updated_at FROM roster_emails WHERE event_id = $1 ORDER BY email`,
+    `SELECT r.email, r.name, r.updated_at, r.removed_at, r.removed_reason, r.removed_by,
+            EXISTS (SELECT 1 FROM papers p WHERE p.event_id=r.event_id AND p.email=r.email) AS has_paper
+       FROM roster_emails r WHERE r.event_id = $1
+      ORDER BY (r.removed_at IS NOT NULL), r.email`,
     [req.params.id],
   );
-  res.json({ roster: rows, roster_updated_at: events[0].roster_updated_at });
+  res.json({
+    roster: rows.map(rosterView),
+    roster_updated_at: events[0].roster_updated_at,
+  });
+});
+
+router.get('/events/:id/roster.csv', async (req, res) => {
+  const { rows: events } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
+  if (!events.length) return res.status(404).json({ error: 'Event not found.' });
+  const { rows } = await q(
+    `SELECT email, name, updated_at, removed_at FROM roster_emails WHERE event_id = $1 ORDER BY email`,
+    [req.params.id],
+  );
+  const lines = [
+    'email,name,removed,updated_at',
+    ...rows.map((row) =>
+      [csvCell(row.email), csvCell(row.name), row.removed_at ? 'yes' : 'no', csvCell(row.updated_at)].join(','),
+    ),
+  ];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="roster.csv"');
+  res.send(lines.join('\n'));
 });
 
 router.post('/events/:id/roster', async (req, res) => {
   const { rows: events } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
   if (!events.length) return res.status(404).json({ error: 'Event not found.' });
 
-  const lines = String(req.body?.text || '').split(/\r?\n/);
-  let added = 0;
-  let updated = 0;
-  const invalid = [];
+  if (req.body?.email !== undefined) {
+    const email = normalize(req.body.email);
+    if (!emailRe.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+    const name = String(req.body?.name || '').trim() || email.split('@')[0];
 
+    const { rows } = await q(
+      `INSERT INTO roster_emails (event_id, email, name, updated_at, removed_at, removed_reason, removed_by)
+       VALUES ($1,$2,$3,now(),NULL,NULL,NULL)
+       ON CONFLICT (event_id, email) DO UPDATE
+         SET name=EXCLUDED.name, updated_at=now(),
+             removed_at=NULL, removed_reason=NULL, removed_by=NULL
+       RETURNING email, name, updated_at, removed_at, removed_reason, removed_by`,
+      [req.params.id, email, name],
+    );
+    await touchRoster(req.params.id);
+    return res.status(201).json({ student: rosterView(rows[0]) });
+  }
+
+  const lines = String(req.body?.text || '').split(/\r?\n/);
+  const valid = [];
+  const invalid = [];
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i].trim();
     if (!raw) continue;
     const parts = raw.split(/[,\t;]/).map((p) => p.trim());
     const email = (parts[0] || '').toLowerCase();
     const name = parts.slice(1).join(' ').trim() || email.split('@')[0];
-    if (!emailRe.test(email)) {
-      invalid.push({ line: i + 1, value: raw });
-      continue;
-    }
-    const { rows: existing } = await q(
-      `SELECT id FROM roster_emails WHERE event_id = $1 AND email = $2`,
-      [req.params.id, email],
-    );
-    if (existing.length) {
-      await q(
-        `UPDATE roster_emails SET name = $3, updated_at = now() WHERE event_id = $1 AND email = $2`,
-        [req.params.id, email, name],
-      );
-      updated++;
-    } else {
-      await q(
-        `INSERT INTO roster_emails (event_id, email, name, updated_at) VALUES ($1,$2,$3,now())`,
-        [req.params.id, email, name],
-      );
-      added++;
-    }
+    if (!emailRe.test(email)) invalid.push({ line: i + 1, value: raw });
+    else valid.push({ email, name });
   }
 
-  if (added || updated) {
-    await q(`UPDATE exam_events SET roster_updated_at = now() WHERE id = $1`, [req.params.id]);
-  }
+  let added = 0;
+  let updated = 0;
+  await withTransaction(async (client) => {
+    for (const row of valid) {
+      const result = await client.query(
+        `INSERT INTO roster_emails (event_id, email, name, updated_at, removed_at, removed_reason, removed_by)
+         VALUES ($1,$2,$3,now(),NULL,NULL,NULL)
+         ON CONFLICT (event_id, email) DO UPDATE
+           SET name=EXCLUDED.name, updated_at=now(),
+               removed_at=NULL, removed_reason=NULL, removed_by=NULL
+         RETURNING (xmax = 0) AS inserted`,
+        [req.params.id, row.email, row.name],
+      );
+      if (result.rows[0]?.inserted) added++;
+      else updated++;
+    }
+  });
+
+  if (added || updated) await touchRoster(req.params.id);
   const { rows: fresh } = await q(`SELECT roster_updated_at FROM exam_events WHERE id = $1`, [req.params.id]);
   res.json({ added, updated, invalid, roster_updated_at: fresh[0].roster_updated_at });
 });
 
+router.patch('/events/:id/roster/:email', async (req, res) => {
+  const email = normalize(decodeURIComponent(req.params.email));
+  const { rows: found } = await q(
+    `SELECT * FROM roster_emails WHERE event_id=$1 AND email=$2`,
+    [req.params.id, email],
+  );
+  if (!found.length) return res.status(404).json({ error: 'Student is not on this roster.' });
+
+  const nextEmail = req.body?.email !== undefined ? normalize(req.body.email) : email;
+  if (!emailRe.test(nextEmail)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  const name = req.body?.name !== undefined ? String(req.body.name).trim() : found[0].name;
+  if (!name) return res.status(400).json({ error: 'Name is required.' });
+
+  if (nextEmail !== email) {
+    const { rows: paper } = await q(
+      `SELECT id FROM papers WHERE event_id=$1 AND email=$2 LIMIT 1`,
+      [req.params.id, email],
+    );
+    if (paper.length) {
+      return res.status(409).json({
+        error: 'This student already has a paper, so their email can no longer be changed.',
+        code: 'email_locked',
+      });
+    }
+  }
+
+  const { rows } = await q(
+    `UPDATE roster_emails SET email=$3, name=$4, updated_at=now()
+      WHERE event_id=$1 AND email=$2
+      RETURNING email, name, updated_at, removed_at, removed_reason, removed_by`,
+    [req.params.id, email, nextEmail, name],
+  );
+  await touchRoster(req.params.id);
+  res.json({ student: rosterView(rows[0]) });
+});
+
+router.delete('/events/:id/roster/:email', async (req, res) => {
+  const email = normalize(decodeURIComponent(req.params.email));
+  const reason = String(req.body?.reason || '').trim() || 'Removed by administrator.';
+  try {
+    const result = await removeRosterStudent(req.params.id, email, {
+      reason,
+      actor: req.user?.sub || 'admin',
+    });
+    await touchRoster(req.params.id);
+    res.json(result);
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      error: err.status ? err.message : 'Could not remove the student.',
+      code: err.code || undefined,
+    });
+  }
+});
+
+router.post('/events/:id/roster/remove', async (req, res) => {
+  const emails = Array.isArray(req.body?.emails)
+    ? [...new Set(req.body.emails.map(normalize).filter((email) => emailRe.test(email)))]
+    : [];
+  if (!emails.length) return res.status(400).json({ error: 'Choose at least one student.' });
+  const reason = String(req.body?.reason || '').trim() || 'Removed by administrator.';
+
+  let removed = 0;
+  for (const email of emails) {
+    try {
+      await removeRosterStudent(req.params.id, email, {
+        reason,
+        actor: req.user?.sub || 'admin',
+      });
+      removed++;
+    } catch (err) {
+      if (err.status !== 404) throw err;
+    }
+  }
+  if (removed) await touchRoster(req.params.id);
+  res.json({ ok: true, removed });
+});
+
 // ---------------------------------------------------------------- live
 
-router.get('/live', async (_req, res) => {
+router.get('/live', async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const result = await sessionViews({
+    limit,
+    offset: (page - 1) * limit,
+    eventId: eventIdFromQuery(req.query.event_id),
+    status: ['active', 'submitted'].includes(req.query.status) ? req.query.status : null,
+    search: String(req.query.q || '').trim() || null,
+  });
   res.json({
-    sessions: await sessionViews(),
+    sessions: result.sessions,
+    total: result.total,
+    page,
+    limit,
+    pages: Math.max(1, Math.ceil(result.total / limit)),
     events: await feedViews(),
     server_time: new Date().toISOString(),
+  });
+});
+
+// One student's live state plus their full proctor-event history.
+router.get('/session', async (req, res) => {
+  const paper = await paperFromKey(req.query.key);
+  if (!paper) return res.status(404).json({ error: 'Session not found.' });
+  res.json({
+    session: await sessionViewById(paper.id),
+    events: await feedViews(1000, paper.id),
   });
 });
 
@@ -227,6 +618,55 @@ router.post('/lock', async (req, res) => {
     reason,
   });
   res.json({ ok: true, session: await sessionViewById(updated.id) });
+});
+
+router.post('/resume', async (req, res) => {
+  const paper = await paperFromKey(req.body?.key);
+  if (!paper) return res.status(404).json({ error: 'Session not found.' });
+
+  try {
+    const session = await resumePaper(paper, {
+      minutes: Number(req.body?.minutes),
+      reason: String(req.body?.reason || '').trim(),
+      actor: req.user?.sub || 'admin',
+    });
+    res.json({ ok: true, session });
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      error: err.status ? err.message : 'Could not resume the session.',
+      code: err.code || undefined,
+    });
+  }
+});
+
+router.post('/restart', async (req, res) => {
+  const paper = await paperFromKey(req.body?.key);
+  if (!paper) return res.status(404).json({ error: 'Session not found.' });
+  const { rows } = await q(`SELECT * FROM exam_events WHERE id=$1`, [paper.event_id]);
+  if (!rows.length) return res.status(404).json({ error: 'Event not found.' });
+  const { rows: roster } = await q(
+    `SELECT removed_at FROM roster_emails WHERE event_id=$1 AND email=$2`,
+    [paper.event_id, paper.email],
+  );
+  if (roster[0]?.removed_at) {
+    return res.status(409).json({
+      error: 'Restore this student to the roster before restarting their paper.',
+      code: 'student_removed',
+    });
+  }
+
+  try {
+    const session = await restartPaper(paper, rows[0], {
+      reason: String(req.body?.reason || '').trim(),
+      actor: req.user?.sub || 'admin',
+    });
+    res.json({ ok: true, session });
+  } catch (err) {
+    return res.status(err.status || 500).json({
+      error: err.status ? err.message : 'Could not restart the session.',
+      code: err.code || undefined,
+    });
+  }
 });
 
 router.post('/message', async (req, res) => {
@@ -436,34 +876,6 @@ router.get('/analytics.csv', async (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="competency.csv"');
   res.send(lines.join('\n'));
-});
-
-
-// ---------------------------------------------------------------- recordings
-
-router.get('/recordings', async (req, res) => {
-  res.json({ recordings: await recordingViews(eventIdFromQuery(req.query.event_id)) });
-});
-
-router.get('/recordings/:key/chunks/:seq', async (req, res) => {
-  const paper = await paperFromKey(req.params.key);
-  if (!paper) return res.status(404).json({ error: 'Chunk missing.' });
-
-  const seq = Number(req.params.seq);
-  const { rows } = await q(
-    `SELECT path, mime FROM recordings WHERE paper_id = $1 AND chunk_no = $2`,
-    [paper.id, seq],
-  );
-  if (!rows.length) return res.status(404).json({ error: 'Chunk missing.' });
-
-  let data;
-  try {
-    data = await fs.readFile(rows[0].path);
-  } catch {
-    return res.status(404).json({ error: 'Chunk missing.' });
-  }
-  res.setHeader('Content-Type', rows[0].mime || 'video/webm');
-  res.send(data);
 });
 
 export default wrapRouter(router);

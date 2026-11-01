@@ -59,6 +59,7 @@ function quoteIdent(name) {
 // Drops any leftover database with the same name, creates it fresh and loads
 // the current schema. Returns the connection URL of the new database.
 export async function createScratchDatabase({ adminUrl, name, schemaPath = SCHEMA_PATH }) {
+  assertScratchDatabase(urlForDatabase(adminUrl, name));
   const client = new pg.Client({ connectionString: adminUrl });
   await client.connect();
   try {
@@ -98,6 +99,7 @@ export async function createScratchDatabase({ adminUrl, name, schemaPath = SCHEM
 
 // Removes the scratch database and everything in it.
 export async function dropScratchDatabase({ adminUrl, name }) {
+  assertScratchDatabase(urlForDatabase(adminUrl, name));
   const client = new pg.Client({ connectionString: adminUrl });
   await client.connect();
   try {

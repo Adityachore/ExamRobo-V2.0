@@ -34,7 +34,7 @@ Refer to the files in `Brain/` for project documentation.
 | `server/sql/migrations/` | append-only incremental changes |
 | `server/sql/taxonomy.sql` | the skills reference data (39 skills), re-applied on every boot and after a truncate |
 | `server/sql/backfill.sql` | rebuilds the frozen competency of the papers that predate the taxonomy, applied after the taxonomy |
-| `server/smoke.mjs` | 96-assertion end-to-end contract test (truncates the DB first) |
+| `server/smoke.mjs` | 156-assertion end-to-end contract test (truncates the DB first) |
 | `server/load/k6.js` | k6 load scenario (setup creates the event + roster) |
 | `server/test/` | unit tests: `lockout`, `redis-lockout`, `security`, `paper`, `grading`, `integrity`, `concurrency`, `client-signals`, `competency`, `analytics`, `async-errors` |
 | `web/src/` | the white-theme SPA (27 files, ported 1:1) |

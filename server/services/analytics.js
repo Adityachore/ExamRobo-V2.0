@@ -30,8 +30,11 @@ const COMPETENCY_ROWS = `
   SELECT pq.paper_id, pq.qno, pq.skill_code, pq.difficulty,
          s.name AS skill_name, s.category AS skill_category,
          (a.paper_id IS NOT NULL) AS answered,
-         (a.choice IS NOT NULL AND a.choice = v.correct_idx) AS is_correct
+         (a.choice IS NOT NULL
+          AND COALESCE((p.option_orders -> pq.qno ->> a.choice)::int, a.choice) = v.correct_idx)
+           AS is_correct
     FROM paper_questions pq
+    JOIN papers p ON p.id = pq.paper_id
     JOIN question_variants v ON v.id = pq.variant_id
     LEFT JOIN answers a ON a.paper_id = pq.paper_id AND a.qno = pq.qno
     LEFT JOIN skills s ON s.code = pq.skill_code

@@ -1,5 +1,6 @@
 import { q } from '../db.js';
 import { domainRules, plannedCategories, validateSelection } from './domains.js';
+import { paperDuration } from './event-config.js';
 
 // Randomize with a swappable RNG for tests. Fisher-Yates.
 export function shuffle(arr, rng = Math.random) {
@@ -52,13 +53,14 @@ export async function buildPaperPlan(event, rng = Math.random, selection = null)
 
   const sections = [];
   const variantIds = [];
+  const optionOrders = [];
 
   for (const category of categories) {
     const want = Number(counts[category] || 0);
     if (want <= 0) continue;
 
     const { rows } = await q(
-      `SELECT v.id, v.question_id
+      `SELECT v.id, v.question_id, cardinality(v.options)::int AS option_count
          FROM questions q JOIN question_variants v ON v.question_id = q.id
         WHERE q.category = $1 AND q.active
         ORDER BY v.id`,
@@ -68,7 +70,7 @@ export async function buildPaperPlan(event, rng = Math.random, selection = null)
     const byQuestion = new Map();
     for (const r of rows) {
       if (!byQuestion.has(r.question_id)) byQuestion.set(r.question_id, []);
-      byQuestion.get(r.question_id).push(r.id);
+      byQuestion.get(r.question_id).push({ id: r.id, optionCount: Number(r.option_count) });
     }
     if (byQuestion.size === 0) {
       throw insufficient(`no questions for category '${category}'`, category);
@@ -84,13 +86,18 @@ export async function buildPaperPlan(event, rng = Math.random, selection = null)
 
     for (const questionId of questionIds.slice(0, want)) {
       const variants = byQuestion.get(questionId);
-      variantIds.push(variants[Math.floor(rng() * variants.length)]);
+      const chosen = variants[Math.floor(rng() * variants.length)];
+      variantIds.push(chosen.id);
+      const count = Number.isInteger(chosen.optionCount) && chosen.optionCount > 0
+        ? chosen.optionCount
+        : 4;
+      optionOrders.push(shuffle([...Array(count).keys()], rng));
     }
     sections.push({ name: category, count: want });
   }
 
   if (!variantIds.length) throw insufficient('event has no configured questions');
-  return { sections, variantIds, selected };
+  return { sections, variantIds, selected, optionOrders };
 }
 
 // Flat, ordered variant ids for an event.
@@ -100,8 +107,8 @@ export async function buildVariantIds(event, rng = Math.random) {
 }
 
 // Create the student's paper. Idempotent: one paper per (event, student).
-// The deadline is clamped to the event end, so a late starter can never get
-// more time than the event window allows.
+// The event window only limits when a paper may start. Once created, the paper
+// gets the full sum of its own section limits - a late starter loses nothing.
 //
 // The competency of every question is frozen with the paper: a question that
 // is re-tagged after this exam ran must not change the result of an exam
@@ -113,17 +120,19 @@ export async function buildVariantIds(event, rng = Math.random) {
 // domains and they must not move when the bank changes.
 export async function createPaper(event, email, rng = Math.random, selection = null) {
   const plan = await buildPaperPlan(event, rng, selection);
+  const duration = paperDuration(event, plan.selected);
   const { rows } = await q(
     `WITH ins AS (
-       INSERT INTO papers (event_id, email, variant_ids, started_at, ends_at, status, selected_categories)
+       INSERT INTO papers
+         (event_id, email, variant_ids, started_at, ends_at, status,
+          selected_categories, duration_min, option_orders)
        VALUES ($1, $2, $3, now(),
-               LEAST(now() + $4::int * interval '1 minute',
-                     $5::timestamptz + $4::int * interval '1 minute'),
-               'active', $6::text[])
+               now() + $4::int * interval '1 minute',
+               'active', $5::text[], $4::int, $6::jsonb)
        ON CONFLICT (event_id, email) DO UPDATE SET variant_ids = papers.variant_ids
        RETURNING id, event_id, email, variant_ids, started_at, ends_at,
                 current_index, status, submitted_at, submit_reason, score,
-                selected_categories
+                selected_categories, duration_min, option_orders
      ), snap AS (
        INSERT INTO paper_questions (paper_id, qno, variant_id, skill_id, skill_code, difficulty, category)
        SELECT ins.id, t.ord - 1, t.variant_id, qq.skill_id, s.code, qq.difficulty, qq.category
@@ -136,11 +145,65 @@ export async function createPaper(event, email, rng = Math.random, selection = n
        RETURNING paper_id
      )
      SELECT * FROM ins`,
-    [event.id, email, plan.variantIds, event.duration_min, event.starts_at, plan.selected],
+    [
+      event.id,
+      email,
+      plan.variantIds,
+      duration,
+      plan.selected,
+      JSON.stringify(plan.optionOrders),
+    ],
   );
-  return rows[0];
+
+  const paper = rows[0];
+  const limits = event.section_limits || {};
+  if (paper && plan.sections.length && Object.keys(limits).length) {
+    for (let position = 0; position < plan.sections.length; position++) {
+      const section = plan.sections[position];
+      const limit = Number(limits[section.name]);
+      if (!(limit > 0)) continue;
+      await q(
+        `INSERT INTO paper_sections (paper_id, position, category, limit_min)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (paper_id, category) DO NOTHING`,
+        [paper.id, position, section.name, limit],
+      );
+    }
+
+    // The first section is active from the moment the paper exists. Later
+    // sections stay locked until the previous one is finished or times out.
+    await q(
+      `UPDATE paper_sections ps
+          SET started_at = now(),
+              ends_at = LEAST(now() + ps.limit_min * interval '1 minute', $2::timestamptz)
+        WHERE ps.paper_id = $1
+          AND ps.position = (
+            SELECT min(position) FROM paper_sections WHERE paper_id = $1
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM paper_sections started
+             WHERE started.paper_id = $1 AND started.started_at IS NOT NULL
+          )`,
+      [paper.id, paper.ends_at],
+    );
+  }
+  return paper;
 }
 
+
+// The frozen display order of the authored options, per question position.
+async function loadOptionOrders(paperId) {
+  const { rows } = await q(`SELECT option_orders FROM papers WHERE id = $1`, [paperId]);
+  return Array.isArray(rows[0]?.option_orders) ? rows[0].option_orders : [];
+}
+
+// A legacy paper (or a question whose option count changed) falls back to the
+// authored order, so nothing ever renders blank.
+export function orderFor(orders, index, options) {
+  const opts = Array.isArray(options) ? options : [];
+  const order = Array.isArray(orders?.[index]) ? orders[index] : null;
+  return order && order.length === opts.length ? order : opts.map((_, i) => i);
+}
 
 // Hydrate a paper for the student: sections -> questions.
 // NEVER exposes correct_idx.
@@ -158,6 +221,7 @@ export async function hydratePaper(variantIds, paperId = null) {
     ? await q(`SELECT qno, category FROM paper_questions WHERE paper_id = $1`, [paperId])
     : { rows: [] };
   const categoryByQno = new Map(frozen.map((r) => [Number(r.qno), r.category]));
+  const orderByQno = paperId ? await loadOptionOrders(paperId) : [];
 
   const { rows } = await q(
     `SELECT v.id, v.stem, v.options, qq.category
@@ -173,11 +237,13 @@ export async function hydratePaper(variantIds, paperId = null) {
     const name = categoryByQno.get(index) || v.category;
     const last = sections[sections.length - 1];
     if (!last || last.name !== name) sections.push({ name, questions: [] });
+    const order = orderFor(orderByQno, index, v.options);
     sections[sections.length - 1].questions.push({
       id: v.id,
       n: index,
       stem: v.stem,
-      options: v.options,
+      options: order.map((i) => v.options[i]),
+      option_ids: order,
     });
   });
   return { sections };
@@ -239,11 +305,13 @@ export async function hydrateQuestion(paper, index) {
   );
   if (!rows.length) return null;
   const row = rows[0];
+  const order = orderFor(paper.option_orders, index, row.options);
   return {
     id: row.id,
     n: index,
     section: row.category || 'Questions',
     stem: row.stem,
-    options: row.options,
+    options: order.map((i) => row.options[i]),
+    option_ids: order,
   };
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { ArrowRight, Mail, ShieldCheck } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Activity, ArrowRight, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { api, auth, ApiError } from '../../lib/api.js';
-import { Banner, Button, Field, Input, Logo, Modal, Textarea, cx, useToast } from '../../components/ui.jsx';
+import { Banner, Button, Field, Input, Logo, Modal, Textarea, useToast } from '../../components/ui.jsx';
+import { Aurora, GlowButton, Item, ProductPreview, Reveal, Stagger } from '../../components/motion.jsx';
 import { clock } from '../../lib/format.js';
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -49,7 +51,6 @@ export default function Login() {
   const nav = useNavigate();
   const loc = useLocation();
   const [email, setEmail] = useState('');
-  const [emailErr, setEmailErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(loc.state?.message ? { text: loc.state.message, tone: 'info' } : null);
   const [lockedUntil, setLockedUntil] = useState(0);
@@ -63,8 +64,8 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     if (busy || lockLeft > 0) return;
-    if (!EMAIL_RE.test(email.trim())) { setEmailErr('Enter a valid email address.'); return; }
-    setEmailErr(''); setBusy(true); setError(null);
+    if (!EMAIL_RE.test(email.trim())) { setError({ text: 'Enter a valid email address.', tone: 'error' }); return; }
+    setBusy(true); setError(null);
     try {
       const r = await api('/auth/student', { method: 'POST', body: { email: email.trim() } });
       auth.set('student', r.token, { email: r.email, name: r.name });
@@ -81,84 +82,67 @@ export default function Login() {
     } finally { setBusy(false); }
   };
 
+  const features = [[ShieldCheck, 'Secure', 'Your data, our priority'], [Activity, 'Real-time', 'Live monitoring'], [Lock, 'Saved', 'Every answer, instantly']];
+  const [focus, setFocus] = useState(false);
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-bg">
-      <div className="pointer-events-none absolute -left-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-ice/80 blur-3xl" aria-hidden />
-      <div className="pointer-events-none absolute -bottom-48 right-0 h-[26rem] w-[26rem] rounded-full bg-primary-soft/80 blur-3xl" aria-hidden />
+    <div className="relative isolate grid min-h-screen overflow-hidden lg:grid-cols-[1.15fr_1fr]">
+      <Aurora />
+      <aside className="hidden flex-col justify-between p-12 lg:flex xl:p-16">
+        <Reveal><Logo /></Reveal>
+        <Stagger className="max-w-lg">
+          <Item as="h2" className="text-5xl font-light leading-[1.1] tracking-tight xl:text-6xl">Your skills.<br /><span className="er-grad-text font-semibold">Our focus.</span></Item>
+          <Item as="p" className="mt-5 max-w-sm text-lg text-muted">A modern proctored exam platform for a fair and secure assessment.</Item>
+          <Item className="mt-9 flex flex-wrap gap-x-7 gap-y-4">
+            {features.map(([Icon, t, d], i) => (
+              <motion.div key={t} whileHover={{ y: -3 }} className="flex items-center gap-3">
+                <span className="er-glass grid h-11 w-11 place-items-center rounded-full text-primary"><Icon size={18} aria-hidden /></span>
+                <span><span className="block text-sm font-medium">{t}</span><span className="block text-xs text-muted">{d}</span></span>
+              </motion.div>
+            ))}
+          </Item>
+        </Stagger>
+        <div className="pr-10"><ProductPreview className="mx-auto max-w-md" /></div>
+      </aside>
 
-      <main className="relative grid min-h-screen place-items-center px-4 py-6 sm:px-6 sm:py-10">
-        <div className="grid w-full max-w-5xl overflow-hidden rounded-2xl border border-line bg-white shadow-card lg:grid-cols-[46%_54%]">
-          <aside className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-ice via-primary-soft to-white p-10 lg:flex xl:p-12">
-            <div className="pointer-events-none absolute -right-20 top-16 h-64 w-64 rounded-full border border-white/80" aria-hidden />
-            <div className="pointer-events-none absolute -bottom-28 -left-20 h-72 w-72 rounded-full bg-white/50" aria-hidden />
-            <div className="relative"><Logo /></div>
-
-            <div className="relative py-10">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Secure online examinations</p>
-              <h2 className="mt-3 text-[40px] font-semibold leading-[1.12] tracking-tight text-ink">Smarter Exams.<br />Safer Tomorrow.</h2>
-              <p className="mt-4 max-w-sm text-[15px] leading-6 text-muted">A calm, focused place to take your assessment — with clear instructions and secure, monitored sessions.</p>
-
-              <div className="relative mx-auto mt-9 h-48 w-full max-w-sm" aria-hidden>
-                <div className="absolute inset-x-5 top-2 rounded-2xl border border-white/90 bg-white/80 p-5 shadow-card backdrop-blur-sm">
-                  <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div className="flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-md bg-primary-soft text-primary"><ShieldCheck size={14} /></span><span className="text-sm font-medium text-ink">Exam session</span></div>
-                    <span className="h-2 w-2 rounded-full bg-ok" />
+      <main className="relative grid place-items-center px-4 py-10">
+        <div className="w-full max-w-md">
+          <Reveal className="mb-6 lg:hidden"><Logo /></Reveal>
+          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }} className="er-glass rounded-3xl p-8">
+            <h1 className="text-2xl font-semibold tracking-tight">Welcome back <motion.span className="inline-block origin-[70%_70%]" animate={{ rotate: [0, 16, -8, 14, 0] }} transition={{ duration: 1.6, delay: 0.9 }} aria-hidden>👋</motion.span></h1>
+            <p className="mt-1.5 text-muted">Sign in with the email address invited to your exam.</p>
+            <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+              <Field label="Email address">
+                {(p) => (
+                  <div className={'relative rounded-xl transition-shadow ' + (focus ? 'shadow-[0_0_0_4px_rgb(37_99_235/.12)]' : '')}>
+                    <Mail size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-slate-400" aria-hidden />
+                    <Input {...p} type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" className="h-11 rounded-xl pl-10" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} disabled={lockLeft > 0} />
                   </div>
-                  <div className="mt-4 space-y-2"><div className="h-2 w-3/4 rounded-full bg-slate-200" /><div className="h-2 w-1/2 rounded-full bg-slate-200" /></div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {[0, 1, 2, 3].map((i) => <div key={i} className={cx('h-7 rounded-md border', i === 1 ? 'border-primary/40 bg-primary-soft' : 'border-line bg-white')} />)}
-                  </div>
-                </div>
-                <div className="absolute -bottom-1 right-1 flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-medium text-white shadow-[0_10px_24px_-10px_rgba(37,99,235,0.9)]"><ShieldCheck size={14} />Protected session</div>
-              </div>
-            </div>
-
-            <div className="relative flex items-center gap-2 text-xs text-muted"><ShieldCheck size={14} className="text-primary" aria-hidden />Authorized candidates only.</div>
-          </aside>
-
-          <section className="relative flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-14 lg:py-16">
-            <div className="mb-8 lg:hidden"><Logo /></div>
-            <div className="mx-auto w-full max-w-[360px]">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Candidate sign in</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight">Welcome Back</h1>
-              <p className="mt-2 text-sm leading-6 text-muted">Sign in with the email address invited to your exam.</p>
-
-              <form onSubmit={submit} noValidate className="mt-7 space-y-5">
-                <Field label="Email address" error={emailErr}>
-                  {(p) => (
-                    <div className="relative">
-                      <Mail size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-muted" aria-hidden />
-                      <Input {...p} type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" className="pl-10" value={email} onChange={(e) => { setEmail(e.target.value); setEmailErr(''); }} disabled={lockLeft > 0} />
-                    </div>
-                  )}
-                </Field>
-
-                <div aria-live="polite">
-                  {error && (
+                )}
+              </Field>
+              <div aria-live="polite">
+                {error && (
+                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
                     <Banner tone={error.tone} title={error.text}
-                      action={error.retry ? <Button type="button" size="sm" variant="secondary" onClick={submit}>Retry</Button> : null}>
+                      action={error.retry ? <Button size="sm" variant="secondary" onClick={submit}>Retry</Button> : null}>
                       {error.extra}
                       {error.lock && lockLeft > 0 && <span className="tnum block">Try again in {clock(lockLeft)}. A support ticket was created for you.</span>}
                       {error.lock && lockLeft === 0 && <span className="block">You can try again now.</span>}
                     </Banner>
-                  )}
-                </div>
-
-                <Button type="submit" size="lg" className="w-full" loading={busy} disabled={lockLeft > 0 || !email.trim()}>{busy ? 'Checking eligibility…' : <>Sign In<ArrowRight size={16} aria-hidden /></>}</Button>
-              </form>
-
-              <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-line bg-canvas/60 px-3.5 py-3 text-xs leading-5 text-muted">
-                <ShieldCheck size={15} className="mt-0.5 shrink-0 text-primary" aria-hidden />
-                Your email is only used to find your exam assignment. Access is controlled by your exam team.
+                  </motion.div>
+                )}
               </div>
-
-              <p className="mt-6 text-center text-sm text-muted">Having trouble? <button type="button" onClick={() => setContact(true)} className="font-medium text-primary hover:underline">Contact Team</button></p>
-              <p className="mt-3 text-center text-xs leading-5 text-muted">
-                This exam may open in Safe Exam Browser.{' '}
-                <button type="button" onClick={() => nav('/seb')} className="font-medium text-primary hover:underline">SEB setup</button>
-              </p>
-            </div>
-          </section>
+              <GlowButton type="submit" className="w-full" loading={busy} disabled={lockLeft > 0 || !email.trim()}>
+                {busy ? 'Checking eligibility…' : <>Continue<ArrowRight size={16} aria-hidden /></>}
+              </GlowButton>
+            </form>
+            <div className="mt-6 border-t border-line/70 pt-4 text-center text-sm text-muted">Having trouble? <button type="button" onClick={() => setContact(true)} className="font-medium text-primary hover:underline">Contact Team</button></div>
+            <p className="mt-3 text-center text-xs leading-5 text-muted">
+              This exam may open in Safe Exam Browser.{' '}
+              <button type="button" onClick={() => nav('/seb')} className="font-medium text-primary hover:underline">SEB setup</button>
+            </p>
+          </motion.div>
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={12} aria-hidden />Secure exams. Fair results.</p>
         </div>
       </main>
       <ContactTeam open={contact} onClose={() => setContact(false)} defaultEmail={email} />

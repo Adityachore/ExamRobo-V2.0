@@ -9,9 +9,9 @@ pg + ioredis. PostgreSQL 16 + Redis 7. Docker Compose (db, redis, api, nginx).
 - **Login**: split panel (46% brand aside / 54% form) at `lg`; brand aside hidden below `lg`; max-w-5xl.
 - **Waiting / Exam gate / Result**: `StudentHeader` plus centered content, max-w-4xl (Waiting, Result) or max-w-5xl (Exam).
 - **Exam gate**: two columns on `lg` (instructions 1.55fr, live readiness 1fr); single column on mobile. Begin is disabled until the server clock reaches `starts_at` and the window is open.
-- **Runner**: sticky header (logo, event name, question position, warnings, autosave, recording, timer); 3-column shell at `xl` (section rail 220px, question, navigator 300px), 2 columns at `lg`, question-only on mobile. Sticky footer keeps Previous / Next / Questions / Review & submit visible. Fullscreen is required before the question is shown.
+- **Runner**: sticky header (logo, event name, question position, warnings, autosave, Calculator, timer); 3-column shell at `xl` (section rail 220px, question, navigator 300px), 2 columns at `lg`, question-only on mobile. Sticky footer keeps Previous / Next / Questions / Review & submit visible. Fullscreen is required before the question is shown. The Calculator opens in a floating panel and is client-only.
 - **Result**: completion hero, Exam/Submitted/Score summary, score ring + section bars, optional competency tabs, feedback, Finish & sign out.
-- **Admin**: left nav (Dashboard, Events, Live, Results, Recordings, Flags, Tickets, Bank), content right. Unchanged by the candidate-path redesign.
+- **Admin**: left nav (Dashboard, Events, Live, Results, Flags, Tickets, Bank), content right. Recording review is disabled.
 
 ## Component tree (candidate path)
 ```
@@ -19,11 +19,12 @@ App
   Login                 (split brand panel, email + inline validation, Contact Team)
   Waiting               (next-exam hero, server-anchored countdown, instructions)
   Exam                  (precheck -> readiness/instructions -> starting -> Runner)
-  Runner                (useIntegrity, ScreenRecorder, exam timer, autosave,
+  Runner                (useIntegrity, exam timer, autosave, Calculator,
                          section rail, Question Navigator, SubmitDialog)
-  Result                (completion hero, score ring, section + competency breakdown)
+  Result                (completion hero, score ring, section + competency breakdown,
+                         pending/unavailable/expired result states)
   Locked                (integrity lockout notice, forced sign-out)
-  Admin                 (AdminLogin, Events, Live, Results, Recordings,
+  Admin                 (AdminLogin, Events, Live, Results,
                          Flags, Tickets, Bank)
 ```
 
@@ -33,7 +34,7 @@ Shared candidate primitives live in `web/src/components/ui.jsx`: `Button`,
 focus restore. Exam-specific primitives live in
 `web/src/components/exam/parts.jsx`: `ExamCountdown`, `FullscreenBlocker`,
 `StartCountdown`, `AutosaveChip`, `AnswerOption`, `QuestionNavigator`,
-`QuestionNavigatorPanel`, `SubmitDialog`.
+`QuestionNavigatorPanel`, `SubmitDialog`, `Calculator`.
 
 ## Palette (exact design tokens)
 Defined once in `web/src/index.css` under `@theme`:
@@ -185,7 +186,7 @@ detects, the server decides.
   one warning even when the client and the server both see it.
 - **The browser cannot stop an operating-system capture.** The screenshot key
   is counted and ends the exam, but the picture is still taken; the instructions
-  say so and the screen recording is the evidence. `os_chord` (the bare
+  say so; screen recording is disabled, so the proctor event log is the evidence. `os_chord` (the bare
   operating-system key) is the only in-page trace of the snipping tool and is
   logged, never penalised.
 - The server never trusts the client for concurrency. Two live tabs of one

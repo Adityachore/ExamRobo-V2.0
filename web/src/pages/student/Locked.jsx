@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { ShieldAlert } from 'lucide-react';
+import { motion } from 'motion/react';
+import { ArrowRight, ShieldAlert } from 'lucide-react';
 import { auth } from '../../lib/api.js';
-import { Banner, Button, Card, Logo } from '../../components/ui.jsx';
+import { Banner, Logo } from '../../components/ui.jsx';
+import { Aurora, GlowButton, Item, Reveal, Stagger } from '../../components/motion.jsx';
 
 // The notice survives a page refresh, so the student always sees why the exam
 // ended - even after the sign-in token has been cleared.
@@ -39,34 +41,36 @@ export default function Locked({ notice: noticeProp } = {}) {
   const back = () => { clearLockNotice(); auth.clear('student'); nav('/', { replace: true }); };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-bg">
-      <div className="pointer-events-none absolute -left-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-danger-soft/70 blur-3xl" aria-hidden />
-      <div className="pointer-events-none absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-ice/80 blur-3xl" aria-hidden />
-      <div className="relative grid min-h-screen place-items-center px-4 py-8">
-        <div className="w-full max-w-lg">
-          <div className="mb-6 flex justify-center"><Logo /></div>
-          <Card className="p-6 sm:p-8">
-            <div className="flex items-start gap-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-danger-soft text-danger-ink"><ShieldAlert size={22} aria-hidden /></span>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight">Your exam was ended</h1>
-                <p className="mt-1 text-sm leading-6 text-muted">This attempt was closed by the exam team or the integrity policy.</p>
-              </div>
+    <div className="relative isolate grid min-h-screen place-items-center overflow-hidden px-4 py-10">
+      <Aurora tone="red" />
+      <div className="w-full max-w-md">
+        <Reveal className="mb-6 flex justify-center"><Logo /></Reveal>
+        <Stagger className="er-glass space-y-5 rounded-3xl p-7">
+          <Item className="flex items-center gap-4">
+            <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-danger-soft text-danger">
+              <motion.span aria-hidden className="absolute inset-0 rounded-2xl border border-danger/40" animate={{ scale: [1, 1.5], opacity: [0.6, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }} />
+              <ShieldAlert size={22} aria-hidden />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Your exam was ended</h1>
+              <p className="text-sm text-muted">This attempt was closed by the exam integrity policy.</p>
             </div>
+          </Item>
 
-            <Banner tone="error" className="mt-5" title={notice.label || 'Integrity violation'} live={false}>
+          <Item>
+            <Banner tone="error" title={notice.label || 'Integrity violation'} live={false}>
               {notice.reason || 'A rule that protects exam integrity was triggered during your attempt.'}
             </Banner>
+          </Item>
 
-            <div className="mt-5 space-y-2.5 rounded-lg border border-line bg-canvas/60 p-4 text-sm leading-6 text-muted">
-              <p>Your answers were submitted and graded as usual, so your work still counts.</p>
-              <p>The exam team has been notified and will review the attempt before deciding what happens next.</p>
-              <p>If you believe this was a mistake, contact the exam team and quote your email address.</p>
-            </div>
+          <Item as="ul" className="space-y-3 text-sm text-muted">
+            {['Your answers were submitted and graded as usual, so your work still counts.', 'The exam team has been notified and will review the attempt before deciding what happens next.', 'If you believe this was a mistake, contact the exam team and quote your email address.'].map((t) => (
+              <li key={t} className="flex gap-3"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" aria-hidden />{t}</li>
+            ))}
+          </Item>
 
-            <Button className="mt-5 w-full" onClick={back}>Back to sign in</Button>
-          </Card>
-        </div>
+          <Item><GlowButton className="w-full" onClick={back} shine={false}>Back to sign in<ArrowRight size={16} aria-hidden /></GlowButton></Item>
+        </Stagger>
       </div>
     </div>
   );

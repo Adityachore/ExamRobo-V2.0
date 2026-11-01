@@ -46,3 +46,24 @@ button:disabled { cursor: not-allowed; }
 .er-skel { background: var(--color-line); border-radius: 6px; animation: er-pulse 1.4s ease-in-out infinite; }
 @keyframes er-spin { to { transform: rotate(360deg) } }
 .er-spin { animation: er-spin .8s linear infinite; }
+
+/* ---------- premium surface + motion helpers ---------- */
+.er-glass { background: rgb(255 255 255 / .72); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .8); box-shadow: 0 1px 0 rgb(255 255 255 / .9) inset, 0 20px 50px -20px rgb(30 64 175 / .25), 0 2px 6px rgb(15 23 42 / .04); }
+.er-grad-text { background: linear-gradient(100deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.er-btn-grad { background: linear-gradient(100deg, #1d4ed8, #2563eb 55%, #3b82f6); box-shadow: 0 10px 24px -10px rgb(37 99 235 / .7), 0 1px 0 rgb(255 255 255 / .25) inset; }
+.er-btn-grad:hover:not(:disabled) { filter: brightness(1.06); }
+.er-btn-grad:disabled { filter: grayscale(.2) opacity(.6); }
+.er-shine { position: relative; overflow: hidden; }
+.er-shine::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .35) 50%, transparent 65%); transform: translateX(-120%); animation: er-shine 3.2s ease-in-out infinite; }
+@keyframes er-shine { 0%, 55% { transform: translateX(-120%) } 100% { transform: translateX(120%) } }
+@keyframes er-float { 0%,100% { transform: translate3d(0,0,0) scale(1) } 50% { transform: translate3d(30px,-24px,0) scale(1.08) } }
+@keyframes er-float2 { 0%,100% { transform: translate3d(0,0,0) scale(1) } 50% { transform: translate3d(-34px,26px,0) scale(1.1) } }
+.er-blob { position: absolute; border-radius: 9999px; filter: blur(70px); opacity: .55; will-change: transform; }
+.er-grid { background-image: linear-gradient(rgb(37 99 235 / .05) 1px, transparent 1px), linear-gradient(90deg, rgb(37 99 235 / .05) 1px, transparent 1px); background-size: 44px 44px; mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); }
+@keyframes er-ping { 0% { transform: scale(1); opacity: .6 } 80%,100% { transform: scale(2.4); opacity: 0 } }
+.er-ping { animation: er-ping 2s cubic-bezier(0,0,.2,1) infinite; }
+@keyframes er-dash { to { stroke-dashoffset: 0 } }
+@media (prefers-reduced-motion: reduce) {
+  .er-blob, .er-ping, .er-spin { animation: none !important; }
+  .er-shine::after { display: none; }
+}

@@ -1,4 +1,4 @@
-import { q } from '../db.js';
+import { q, withTransaction } from '../db.js';
 import { toStudent } from './live.js';
 import {
   MAX_WARNINGS,
@@ -10,15 +10,14 @@ import {
 
 // Exam integrity policy.
 //
-//   warn - recorded and counted; enough warnings flag the attempt for review,
-//          but the student can continue.
+//   warn - recorded and counted. The warning that reaches MAX_WARNINGS submits
+//          the paper with reason max_warnings.
 //   log  - recorded for the proctor, no penalty.
 //
-// Ending an exam is an admin decision (lockPaper), never a client signal. The
-// browser is controlled by the student, so a client-reported kind is a SIGNAL
-// and never proof. The server owns the count and the consequence, which is what
-// makes a modified client useless. The kinds below are the whole vocabulary:
-// anything not in this table is rejected.
+// The browser is controlled by the student, so a client-reported kind is a
+// SIGNAL and never proof. The server owns the count and the consequence, which
+// is what makes a modified client useless. The kinds below are the whole
+// vocabulary: anything not in this table is rejected.
 export const TIERS = { WARN: 'warn', LOG: 'log' };
 
 export const INTEGRITY_KINDS = {
@@ -129,8 +128,9 @@ export function kindInfo(kind) {
  * The policy decision, without any side effect. currentWarnings is the number
  * of warnings the paper already carries, before this event.
  *
- * action: 'warn' - count it and carry on
- *         'log'  - record it, no penalty
+ * action: 'warn'   - count it and carry on
+ *         'submit' - this warning reached the limit; submit the paper
+ *         'log'    - record it, no penalty
  */
 export function evaluate(kind, currentWarnings = 0) {
   const info = kindInfo(kind);
@@ -147,13 +147,14 @@ export function evaluate(kind, currentWarnings = 0) {
     };
   }
 
+  const warnings = currentWarnings + 1;
   return {
     ok: true,
     tier: TIERS.WARN,
-    action: 'warn',
+    action: warnings >= MAX_WARNINGS ? 'submit' : 'warn',
     label: info.label,
     reason: info.reason,
-    warnings: currentWarnings + 1,
+    warnings,
   };
 }
 
@@ -221,39 +222,88 @@ export async function recordViolation(paper, kind, detail = '', options = {}) {
     ? String(options.clientEventId).slice(0, 128)
     : null;
   const base = { ok: true, kind, tier: info.tier, label: info.label };
-  const current = await warningCount(paper.id);
-  const decision = evaluate(kind, current);
 
-  // One fullscreen exit is one incident, however many detectors saw it.
-  if (kind === 'fullscreen_exit' && (await recentWarning(paper.id, kind))) {
-    return { ...base, warnings: current, locked: false, submitted: false, duplicate: true };
+  // The paper row is the serialization point. Two tabs cannot both observe
+  // "warning 2" and both stop short of submitting.
+  const outcome = await withTransaction(async (client) => {
+    const { rows: paperRows } = await client.query(
+      `SELECT * FROM papers WHERE id = $1 FOR UPDATE`,
+      [paper.id],
+    );
+    const locked = paperRows[0];
+    if (!locked || locked.status !== 'active') return { inactive: true };
+
+    const count = async () => {
+      const { rows } = await client.query(
+        `SELECT count(*)::int AS n FROM warnings WHERE paper_id = $1`,
+        [paper.id],
+      );
+      return rows[0].n;
+    };
+
+    // One fullscreen exit is one incident, however many detectors saw it.
+    if (kind === 'fullscreen_exit') {
+      const { rows: recent } = await client.query(
+        `SELECT 1 FROM warnings
+          WHERE paper_id = $1 AND kind = $2
+            AND created_at > now() - interval '10 seconds'
+          LIMIT 1`,
+        [paper.id, kind],
+      );
+      // The exam is not fullscreen from now on. The heartbeat carries the
+      // fullscreen state, so the next heartbeat must not count this again.
+      await client.query(`UPDATE papers SET fullscreen_state = false WHERE id = $1`, [paper.id]);
+      if (recent.length) return { duplicate: true, warnings: await count(), paper: locked };
+    }
+
+    if (info.tier === TIERS.LOG) {
+      return { action: 'log', warnings: await count(), paper: locked };
+    }
+
+    const { rows: inserted } = await client.query(
+      `INSERT INTO warnings (paper_id, kind, detail, source, client_event_id)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [paper.id, kind, note ? { note } : null, source, clientEventId],
+    );
+    if (!inserted.length) {
+      return { duplicate: true, warnings: await count(), paper: locked };
+    }
+
+    const warnings = await count();
+    return {
+      action: warnings >= MAX_WARNINGS ? 'submit' : 'warn',
+      warnings,
+      paper: locked,
+    };
+  });
+
+  if (outcome.inactive) return { ok: false, error: 'No active exam.' };
+  if (outcome.duplicate) {
+    return { ...base, warnings: outcome.warnings, locked: false, submitted: false, duplicate: true };
   }
 
-  // The exam is not fullscreen from now on. The heartbeat carries the
-  // fullscreen state, and without this the next heartbeat would see the same
-  // exit again and count the incident twice.
-  if (kind === 'fullscreen_exit') {
-    await q(`UPDATE papers SET fullscreen_state = false WHERE id = $1`, [paper.id]);
+  await logProctorEvent(outcome.paper, kind, note || info.reason);
+
+  if (outcome.action === 'submit') {
+    await submitPaper(outcome.paper, 'max_warnings');
+    return {
+      ...base,
+      warnings: outcome.warnings,
+      locked: false,
+      submitted: true,
+      submit_reason: 'max_warnings',
+    };
   }
 
-  if (decision.action === 'log') {
-    await logProctorEvent(paper, kind, note || info.reason);
-    return { ...base, warnings: current, locked: false, submitted: false };
-  }
-
-  const { rows: inserted } = await q(
-    `INSERT INTO warnings (paper_id, kind, detail, source, client_event_id)
-     VALUES ($1,$2,$3,$4,$5)
-     ON CONFLICT DO NOTHING
-     RETURNING id`,
-    [paper.id, kind, note ? { note } : null, source, clientEventId],
-  );
-  if (!inserted.length) {
-    return { ...base, warnings: current, locked: false, submitted: false, duplicate: true };
-  }
-  await logProctorEvent(paper, kind, note || info.reason);
   await broadcastSession(paper);
-  return { ...base, warnings: decision.warnings, locked: false, submitted: false };
+  return {
+    ...base,
+    warnings: outcome.warnings,
+    locked: false,
+    submitted: false,
+  };
 }
 
 /**

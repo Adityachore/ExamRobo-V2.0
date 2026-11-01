@@ -30,8 +30,9 @@ const adminEmails = (process.env.ADMIN_EMAILS || '')
   .filter(Boolean);
 const adminPassword = process.env.ADMIN_PASSWORD || '';
 
-// Student sign-in. The email must be on the roster of an event that has not
-// ended yet. Three failures lock email+ip for 15 minutes and raise a ticket.
+// Student sign-in. The email must be on the roster of a live event, or of an
+// ended event whose results the admin has published. Three failures lock
+// email+ip for 15 minutes and raise a ticket.
 router.post('/student', async (req, res) => {
   const email = normalize(req.body?.email);
   if (!emailRe.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
@@ -49,10 +50,23 @@ router.post('/student', async (req, res) => {
   // Prefer the event running right now, otherwise the next one that starts.
   const { rows } = await q(
     `SELECT e.id, e.starts_at, COALESCE(r.name, $1) AS student_name
-       FROM roster_emails r JOIN exam_events e ON e.id = r.event_id
+       FROM roster_emails r
+       JOIN exam_events e ON e.id = r.event_id
+       LEFT JOIN papers p ON p.event_id = e.id AND p.email = r.email
       WHERE r.email = $1
-        AND now() < e.starts_at + (e.duration_min) * interval '1 minute'
-      ORDER BY (now() >= e.starts_at) DESC, e.starts_at ASC
+        AND r.removed_at IS NULL
+        AND (
+          now() < e.starts_at + (e.duration_min) * interval '1 minute'
+          OR (p.status = 'active' AND p.ends_at > now())
+          OR (
+            p.status = 'submitted'
+            AND now() >= e.starts_at + (e.duration_min) * interval '1 minute'
+          )
+        )
+      ORDER BY
+        (p.status = 'active' AND p.ends_at > now()) DESC,
+        (now() >= e.starts_at AND now() < e.starts_at + (e.duration_min) * interval '1 minute') DESC,
+        e.starts_at DESC
       LIMIT 1`,
     [email],
   );

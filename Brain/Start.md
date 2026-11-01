@@ -22,7 +22,7 @@ the client. Deployment target: the user's online server (Phase 7).
 - No hard-deletes on business entities.
 - Always read files before editing.
 - Denied Rules must be respected (website only in Phase 1, no intranet in Phase 1,
-  raw MediaRecorder, paper generated at exam start, coding round = Phase 1.5).
+  screen recording disabled, paper generated at exam start, coding round = Phase 1.5).
 - The reference implementation in `C:\Users\Asus\Downloads\examrobo-frontend\web`
   and `...\server` is read-only: it defines the contract, this project implements it.
 - The correct answer never leaves the server before submit.
@@ -30,13 +30,12 @@ the client. Deployment target: the user's online server (Phase 7).
   decides the tier and the outcome.
 
 ## Current Phase
-Phase 12 — results analytics (the competency model, put to work). Phases 1–11
-are implemented and verified. A result says what the exam measured: the
-student sees their score per skill and per difficulty, the admin sees the same
-per student plus a cohort view (the weakest skill first, exportable as CSV),
-and every number comes from the competency the paper froze. `npm run verify` →
-90/90 unit tests, 96/96 smoke assertions against a scratch database, clean web
-build.
+Phase 16 — admin controls, section timing and attempt recovery. Events, roster
+and live sessions now have full CRUD; section clocks start when a question is
+opened; resume/restart preserve the audit trail; and removed roster students are
+submitted and locked out while their result is retained. Verification is green:
+`cd server && npm run verify` passes preflight, 131 unit tests, the web build and
+156/156 smoke assertions.
 
 ## Verification — one command
 
@@ -112,7 +111,7 @@ The SPA dev server (`web`: `npm run dev`) proxies `/api` and `/ws` to `:4000`.
 | `docker compose exec db psql -U examrobo -d examrobo` | database shell |
 | `npm run migrate` | apply pending migrations |
 | `npm run seed` | truncate + reseed (destructive, manual) |
-| `node smoke.mjs` | 96-assertion end-to-end check — needs `DATABASE_URL` to point at a `*_smoke` database, refuses to run otherwise |
+| `node smoke.mjs` | 156-assertion end-to-end check — needs `DATABASE_URL` to point at a `*_smoke` database, refuses to run otherwise |
 | `k6 run server/load/k6.js` | load test (needs k6 installed) |
 
 ### Environment
@@ -122,10 +121,10 @@ The SPA dev server (`web`: `npm run dev`) proxies `/api` and `/ws` to `:4000`.
 | `REDIS_URL` | `redis://localhost:6379` | optional; absent = single-instance mode |
 | `JWT_SECRET` | `dev-secret-change-me` | **must** be unique in production (the API refuses to start otherwise) |
 | `ADMIN_EMAILS` / `ADMIN_PASSWORD` | empty | bootstrap of the first admin; ignored in production |
-| `RECORDINGS_DIR` | `./data/recordings` | where recording chunks are written |
+| `RECORDINGS_DIR` | `./data/recordings` | legacy data directory; active recording upload is disabled |
 | `PORT` | `4000` | |
 | `CORS_ORIGINS` | localhost 5173/8080 | comma-separated allowlist |
-| `AUTH_RATE_LIMIT` / `TICKET_RATE_LIMIT` / `RECORDING_RATE_LIMIT` | 30 / 10 / 30 | per minute |
+| `AUTH_RATE_LIMIT` / `TICKET_RATE_LIMIT` | 30 / 10 | per minute |
 
 ### Exam-day checklist
 1. `docker compose up -d --build` — all four containers healthy.
@@ -133,7 +132,7 @@ The SPA dev server (`web`: `npm run dev`) proxies `/api` and `/ws` to `:4000`.
 3. Upload the roster; check the student count on the Events page.
 4. Open the admin Live dashboard in a second browser before the start time.
 5. Keep `docker compose logs -f api` open during the exam.
-6. After the exam: Results + CSV export, then Recordings review.
+6. After the exam: Results + CSV export and result publication (manual events). Recording review is disabled.
 
 ## The Working Process
 Decision → Implementation → Documentation.

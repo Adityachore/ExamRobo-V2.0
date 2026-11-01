@@ -1,13 +1,14 @@
 ﻿import { Router } from 'express';
 import { wrapRouter } from '../middleware/async.js';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { q } from '../db.js';
 import { requireStudent } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/security.js';
 import { gradePaper } from '../services/grading.js';
 import { competencyOfPaper } from '../services/analytics.js';
+import { resultsStateForEvent } from '../services/results.js';
 import { hydrateQuestion } from '../services/paper.js';
+import { categoryAt, paperSectionRows, sectionAccess, sectionBlockedResponse, sectionViewOf } from '../services/sections.js';
+import { advancePaperSections } from '../services/section-flow.js';
 
 import {
   loadEvent,
@@ -19,13 +20,12 @@ import {
   logProctorEvent,
   broadcastSessionPatch,
   touchPaper,
+  rosterRemoved,
   MAX_WARNINGS,
 } from '../services/sessions.js';
 import { isClientReportable, isKnownKind, kindInfo, recordViolation } from '../services/integrity.js';
 
 const router = Router();
-const RECORDINGS_DIR =
-  process.env.RECORDINGS_DIR || path.join(process.cwd(), 'data', 'recordings');
 const NETWORK_GAP_SEC = Math.max(15, Number(process.env.NETWORK_GAP_SEC || 45));
 
 const studentKey = (req) => req.user?.sub || req.ip || 'unknown';
@@ -37,27 +37,37 @@ const answerLimit = limit('exam_answer', 90);
 const questionLimit = limit('exam_question', 120);
 const snapshotLimit = limit('exam_snapshot', 40);
 const eventLimit = limit('exam_event', 40);
+const sectionLimit = limit('exam_section', 20);
 const submitLimit = limit('exam_submit', 10);
 const resultLimit = limit('exam_result', 30);
 const feedbackLimit = limit('exam_feedback', 5);
 
-// Resolve the student's paper for the current event, expiring it if the
-// deadline already passed. Sends the error response itself.
+function submittedResponse(res, paper) {
+  return res.status(409).json({
+    error: 'Exam already submitted.',
+    code: 'submitted',
+    submit_reason: paper.submit_reason || null,
+    lock_reason: paper.lock_reason || null,
+    locked: paper.submit_reason === 'integrity_lockout',
+  });
+}
+
+// Resolve the student's paper for the current event, expire it if the overall
+// deadline passed, and advance any section whose own deadline passed. Sends the
+// error response itself.
 async function activePaper(req, res) {
   const paper = await loadPaper(req.user.eventId, req.user.sub);
   if (!paper) {
     res.status(404).json({ error: 'No exam session.' });
     return null;
   }
-  const current = await expireIfNeeded(paper);
+  let current = await expireIfNeeded(paper);
+  if (current.status === 'active') {
+    const advanced = await advancePaperSections(current);
+    current = advanced.paper;
+  }
   if (current.status !== 'active') {
-    res.status(409).json({
-      error: 'Exam already submitted.',
-      code: 'submitted',
-      submit_reason: current.submit_reason || null,
-      lock_reason: current.lock_reason || null,
-      locked: current.submit_reason === 'integrity_lockout',
-    });
+    submittedResponse(res, current);
     return null;
   }
   return current;
@@ -67,24 +77,47 @@ async function activePaper(req, res) {
 router.post('/start', requireStudent, startLimit, async (req, res) => {
   const event = await loadEvent(req.user.eventId);
   if (!event) return res.status(404).json({ error: 'No active event.' });
-
-  const now = Date.now();
-  const startsAt = new Date(event.starts_at).getTime();
-  const endsAt = startsAt + Number(event.duration_min) * 60000;
-  if (now < startsAt) {
-    return res.status(409).json({
-      error: 'The exam has not started yet.',
-      code: 'not_started',
-      starts_at: event.starts_at,
-      server_time: new Date().toISOString(),
+  if (await rosterRemoved(event.id, req.user.sub)) {
+    return res.status(403).json({
+      error: 'Your access to this exam was removed by the exam team.',
+      code: 'removed',
     });
-  }
-  if (now > endsAt) {
-    return res.status(409).json({ error: 'This exam has ended.', code: 'ended' });
   }
 
   let paper = await loadPaper(event.id, req.user.sub);
-  if (!paper) {
+
+  if (paper) {
+    // A resumed paper may still be live after the event window closed. The
+    // paper deadline is the authority once it exists.
+    let current = await expireIfNeeded(paper);
+    if (current.status === 'active') {
+      current = (await advancePaperSections(current)).paper;
+    }
+    if (current.status !== 'active') {
+      return res.json({
+        status: 'submitted',
+        submit_reason: current.submit_reason || null,
+        lock_reason: current.lock_reason || null,
+        locked: current.submit_reason === 'integrity_lockout',
+      });
+    }
+    paper = current;
+  } else {
+    const now = Date.now();
+    const startsAt = new Date(event.starts_at).getTime();
+    const endsAt = startsAt + Number(event.duration_min) * 60000;
+    if (now < startsAt) {
+      return res.status(409).json({
+        error: 'The exam has not started yet.',
+        code: 'not_started',
+        starts_at: event.starts_at,
+        server_time: new Date().toISOString(),
+      });
+    }
+    if (now > endsAt) {
+      return res.status(409).json({ error: 'This exam has ended.', code: 'ended' });
+    }
+
     const { createPaper } = await import('../services/paper.js');
     try {
       // A domain-aware event needs the domains the student chose. The
@@ -100,18 +133,6 @@ router.post('/start', requireStudent, startLimit, async (req, res) => {
       throw err;
     }
     await logProctorEvent(paper, 'started', 'Exam started');
-  } else {
-
-    const current = await expireIfNeeded(paper);
-    if (current.status !== 'active') {
-      return res.json({
-        status: 'submitted',
-        submit_reason: current.submit_reason || null,
-        lock_reason: current.lock_reason || null,
-        locked: current.submit_reason === 'integrity_lockout',
-      });
-    }
-    paper = current;
   }
 
   await touchPaper(paper, req.seb?.verified ? 'seb' : 'web');
@@ -130,9 +151,18 @@ router.get('/question/:index', requireStudent, questionLimit, async (req, res) =
     return res.status(400).json({ error: 'Invalid question.' });
   }
 
+  const category = await categoryAt(paper, index);
+  const access = await sectionAccess(paper, category);
+  if (!access.ok) return sectionBlockedResponse(res, access);
+
   const question = await hydrateQuestion(paper, index);
   if (!question) return res.status(404).json({ error: 'Question not found.' });
-  res.json({ question });
+  res.json({
+    question,
+    section: access.section,
+    ends_at: paper.ends_at,
+    server_time: new Date().toISOString(),
+  });
 });
 
 // Save one answer. The client sends the variant id and the chosen option index.
@@ -150,6 +180,10 @@ router.post('/answer', requireStudent, answerLimit, async (req, res) => {
   if (position < 0 || ![0, 1, 2, 3].includes(choice)) {
     return res.status(400).json({ error: 'Invalid answer.' });
   }
+
+  const category = await categoryAt(paper, position);
+  const access = await sectionAccess(paper, category);
+  if (!access.ok) return sectionBlockedResponse(res, access);
 
   const index = Number.isInteger(req.body?.index) ? req.body.index : null;
   const { rows } = await q(
@@ -207,6 +241,9 @@ router.post('/snapshot', requireStudent, snapshotLimit, async (req, res) => {
     [paper.id, Number.isInteger(req.body?.current_index) ? req.body.current_index : null, fullscreen],
   );
   broadcastSessionPatch(paper, { last_seen_at: new Date().toISOString() });
+  const sectionRows = await paperSectionRows(paper.id);
+  const sections = sectionRows.map((row) => sectionViewOf(row));
+  const active = sections.find((section) => section.state === 'active') || null;
 
   res.json({
     ok: true,
@@ -214,6 +251,8 @@ router.post('/snapshot', requireStudent, snapshotLimit, async (req, res) => {
     max_warnings: MAX_WARNINGS,
     submitted,
     ends_at: paper.ends_at,
+    active_section: active?.category || null,
+    sections,
     server_time: new Date().toISOString(),
   });
 });
@@ -253,6 +292,55 @@ router.post('/event', requireStudent, eventLimit, async (req, res) => {
   });
 });
 
+// Finish the current section early. The server completes it at "now", starts
+// the next section at the same instant, and submits when this was the last one.
+router.post('/section/finish', requireStudent, sectionLimit, async (req, res) => {
+  const category = String(req.body?.category || '');
+  if (!category) return res.status(400).json({ error: 'Section is required.' });
+
+  const paper = await loadPaper(req.user.eventId, req.user.sub);
+  if (!paper) return res.status(404).json({ error: 'No exam session.' });
+
+  let current = await expireIfNeeded(paper);
+  if (current.status === 'active') {
+    const outcome = await advancePaperSections(current, { finishCategory: category });
+    current = outcome.paper;
+
+    if (outcome.conflict) {
+      return res.status(409).json({
+        error: 'That section is not the active section.',
+        code: 'section_not_active',
+        requested_section: outcome.conflict.requested?.category || category,
+        active_section: outcome.conflict.active?.category || null,
+      });
+    }
+
+    if (outcome.submittedReason) {
+      return res.json({
+        ok: true,
+        submitted: true,
+        submit_reason: outcome.submittedReason,
+        server_time: new Date().toISOString(),
+      });
+    }
+
+    return res.json({
+      ok: true,
+      submitted: false,
+      active_section: outcome.active?.category || null,
+      sections: outcome.sections,
+      server_time: new Date().toISOString(),
+    });
+  }
+
+  return res.json({
+    ok: true,
+    submitted: true,
+    submit_reason: current.submit_reason || null,
+    server_time: new Date().toISOString(),
+  });
+});
+
 // Hand in the exam.
 router.post('/submit', requireStudent, submitLimit, async (req, res) => {
   const paper = await loadPaper(req.user.eventId, req.user.sub);
@@ -263,6 +351,13 @@ router.post('/submit', requireStudent, submitLimit, async (req, res) => {
 
 // Graded result for the student (correct answers are never exposed).
 router.get('/result', requireStudent, resultLimit, async (req, res) => {
+  if (await rosterRemoved(req.user.eventId, req.user.sub)) {
+    return res.status(403).json({
+      error: 'Your access to this exam was removed by the exam team.',
+      code: 'removed',
+    });
+  }
+
   const paper = await loadPaper(req.user.eventId, req.user.sub);
   if (!paper) return res.status(404).json({ error: 'No result.' });
 
@@ -271,8 +366,34 @@ router.get('/result', requireStudent, resultLimit, async (req, res) => {
     return res.status(409).json({ error: 'Not submitted yet.', code: 'active' });
   }
 
-  const result = await gradePaper(current);
   const event = await loadEvent(current.event_id);
+  if (!event) return res.status(404).json({ error: 'No result.' });
+
+  const state = await resultsStateForEvent(event);
+  if (!state.available) {
+    return res.status(state.status || 409).json({
+      error: state.error,
+      code: state.code,
+      visibility: state.visibility,
+      results_published_at: state.published_at || null,
+      results_expires_at: state.expires_at || null,
+      submitted: true,
+    });
+  }
+
+  // The snapshot is frozen at submission. Older papers are graded once here
+  // and then served from the same snapshot.
+  let result = current.result_snapshot;
+  if (!result) {
+    result = await gradePaper(current);
+    await q(
+      `UPDATE papers
+          SET score = $2, result_snapshot = $3::jsonb, result_graded_at = now()
+        WHERE id = $1 AND result_snapshot IS NULL`,
+      [current.id, result.total, JSON.stringify(result)],
+    );
+  }
+
   const { rows } = await q(`SELECT count(*)::int AS n FROM feedback WHERE paper_id = $1`, [current.id]);
   // What the exam measured: the competency the paper froze, per skill and per
   // difficulty. Counts only - the key never leaves the server.
@@ -282,12 +403,11 @@ router.get('/result', requireStudent, resultLimit, async (req, res) => {
     ...result,
     competency,
     started_at: current.started_at,
-
     submitted_at: current.submitted_at,
     submit_reason: current.submit_reason,
     locked: current.submit_reason === 'integrity_lockout',
     lock_reason: current.lock_reason || null,
-    event_name: event?.name || '',
+    event_name: event.name || '',
     feedback_sent: rows[0].n > 0,
   });
 });
@@ -311,56 +431,6 @@ router.post('/feedback', requireStudent, feedbackLimit, async (req, res) => {
     String(req.body?.comment || '').slice(0, 1000),
   ]);
   res.status(201).json({ ok: true });
-});
-
-// Recording chunk. Mounted with express.raw() before the JSON parser, so the
-// body is the raw binary blob sent by MediaRecorder.
-router.post('/recording/chunk', requireStudent, async (req, res) => {
-  const paper = await loadPaper(req.user.eventId, req.user.sub);
-  if (!paper) return res.status(404).json({ error: 'No exam session.' });
-
-  const seq = Number(req.headers['x-chunk-seq']);
-  if (!Number.isInteger(seq) || seq < 0) return res.status(400).json({ error: 'Missing chunk sequence.' });
-
-  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-  const mime = String(req.headers['content-type'] || 'video/webm');
-
-  // One query for the state of the recording: does this chunk exist, how many
-  // chunks are there, and when was the last one written.
-  const { rows: stats } = await q(
-    `SELECT count(*)::int AS chunk_count,
-            COALESCE(max(chunk_no), -1) AS max_chunk,
-            max(created_at) AS last_chunk_at,
-            count(*) FILTER (WHERE chunk_no = $2)::int AS present
-       FROM recordings WHERE paper_id = $1`,
-    [paper.id, seq],
-  );
-  const stat = stats[0] || { chunk_count: 0, max_chunk: -1, last_chunk_at: null, present: 0 };
-
-  if (!stat.present) {
-    const dir = path.join(RECORDINGS_DIR, paper.id);
-    await fs.mkdir(dir, { recursive: true });
-    const file = path.join(dir, `${seq}.chunk`);
-    await fs.writeFile(file, body);
-    const { rows: written } = await q(
-      `INSERT INTO recordings (paper_id, chunk_no, bytes, path, mime) VALUES ($1,$2,$3,$4,$5)
-       RETURNING created_at`,
-      [paper.id, seq, body.length, file, mime],
-    );
-    broadcastSessionPatch(paper, {
-      chunk_count: Number(stat.chunk_count || 0) + 1,
-      max_chunk: Math.max(Number(stat.max_chunk ?? -1), seq),
-      last_chunk_at: written[0]?.created_at || null,
-    });
-  } else {
-    broadcastSessionPatch(paper, {
-      chunk_count: Number(stat.chunk_count || 0),
-      max_chunk: Number(stat.max_chunk ?? -1),
-      last_chunk_at: stat.last_chunk_at || null,
-    });
-  }
-
-  res.json({ ok: true, received: seq });
 });
 
 export default wrapRouter(router);

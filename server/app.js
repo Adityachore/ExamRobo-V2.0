@@ -12,7 +12,6 @@ import {
   corsAllowlist,
   authRateLimit,
   ticketRateLimit,
-  recordingRateLimit,
   apiNotFound,
 } from './middleware/security.js';
 import authRoutes from './routes/auth.js';
@@ -43,9 +42,6 @@ app.set('trust proxy', Number(process.env.TRUST_PROXY || 1));
 app.use(securityHeaders);
 app.use(corsAllowlist());
 
-// Raw MediaRecorder chunks arrive before the JSON parser, so the body stays
-// binary. The 8mb limit matches the contract.
-app.use('/api/exam/recording', express.raw({ type: '*/*', limit: '8mb' }));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -54,7 +50,6 @@ app.use('/api/student', studentRoutes);
 app.use('/api/tickets', ticketRateLimit, ticketRoutes);
 app.use('/api/ws', wsRoutes);
 app.use('/api/seb', sebRoutes);
-app.use('/api/exam/recording', recordingRateLimit);
 app.use('/api/exam', requireSEB, examRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/bank', bankRoutes);
@@ -62,7 +57,7 @@ app.use('/api', apiNotFound);
 
 app.use((err, _req, res, _next) => {
   if (err?.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Recording chunk is too large.' });
+    return res.status(413).json({ error: 'Request body is too large.' });
   }
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Request body is not valid JSON.' });

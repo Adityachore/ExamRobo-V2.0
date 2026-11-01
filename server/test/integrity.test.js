@@ -35,7 +35,7 @@ test('the tiers are the ones the policy states', () => {
   // capture and recording are warnings for review, not instant endings
   assert.equal(tier('screenshot_key'), TIERS.WARN);
   assert.equal(tier('recording_revoked'), TIERS.WARN);
-  // warnings accumulate; they never submit the exam
+  // warnings accumulate and the last one submits the paper
   for (const k of ['tab_blur', 'fullscreen_exit', 'clipboard', 'context_menu', 'print', 'second_window', 'second_session', 'display_change']) {
     assert.equal(tier(k), TIERS.WARN, `${k} should warn`);
   }
@@ -63,18 +63,18 @@ test('a capture kind warns on the first occurrence', () => {
   assert.equal(d.warnings, 1);
 });
 
-test('a capture kind still warns when the paper already has warnings', () => {
-  assert.equal(evaluate('recording_revoked', 2).action, 'warn');
+test('a capture kind still warns below the limit', () => {
+  assert.equal(evaluate('recording_revoked', 1).action, 'warn');
 });
 
-test('warnings accumulate and never submit the exam', () => {
+test('the warning that reaches the limit submits the exam', () => {
   assert.equal(evaluate('tab_blur', 0).action, 'warn');
   assert.equal(evaluate('tab_blur', 0).warnings, 1);
   assert.equal(evaluate('tab_blur', 1).warnings, 2);
   const third = evaluate('tab_blur', MAX_WARNINGS - 1);
-  assert.equal(third.action, 'warn');
+  assert.equal(third.action, 'submit');
   assert.equal(third.warnings, MAX_WARNINGS);
-  assert.equal(evaluate('tab_blur', MAX_WARNINGS + 10).action, 'warn');
+  assert.equal(evaluate('tab_blur', MAX_WARNINGS + 10).action, 'submit');
 });
 
 test('a log kind never changes the warning count', () => {

@@ -3,3 +3,11 @@ dist/
 .env
 *.log
 recordings/
+
+# Local archives: version snapshots and database dumps are kept on disk but
+# never committed (they contain secrets and PII).
+archive/
+*.sql.gz
+
+# Agent workspace artifacts.
+.zcode/

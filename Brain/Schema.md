@@ -4,9 +4,11 @@ Source of truth: `server/sql/schema.sql` (applied by initdb on a fresh volume).
 Existing databases catch up through `server/sql/migrations/*.sql`
 (`npm run migrate`, also executed automatically by the API at boot).
 
-15 tables: `admins`, `exam_events`, `roster_emails`, `skills`, `questions`,
-`question_variants`, `papers`, `paper_questions`, `answers`, `warnings`,
-`proctor_events`, `recordings`, `flags`, `tickets`, `feedback`.
+18 data tables plus `schema_migrations`: `admins`, `exam_events`,
+`roster_emails`, `skills`, `questions`, `question_variants`, `papers`,
+`paper_sections`, `paper_questions`, `answers`, `warnings`, `proctor_events`,
+`recordings`, `flags`, `tickets`, `feedback`, `admin_actions`,
+`paper_attempt_history`.
 
 ## admins
 | col | type | notes |
@@ -30,7 +32,17 @@ Existing databases catch up through `server/sql/migrations/*.sql`
 | domain_rules | jsonb not null default '{}' | **added in migration 005** — `{ common: [...], allowed: [...], min, max }`; empty for a fixed event |
 | roster_updated_at | timestamptz | stamped on roster upload; drives R-043 |
 | instructions | text | shown to students in the waiting room |
+| section_limits | jsonb not null default '{}' | **added in migration 007** - canonical minutes per section; `duration_min` is only the start window |
+| results_visibility | text not null default 'manual' | **added in migrations 008/010** - `immediate`, `after_all_submitted`, `manual`, `never` |
+| results_published | boolean not null default false | manual-mode compatibility mirror |
+| results_published_at | timestamptz | manual publication time |
+| results_published_by | text | admin identity |
+| results_expires_at | timestamptz | required for manual publication |
 | created_by | uuid fk admins | |
+
+Target compatibility: target `exam_events.module_minutes` is copied into
+`section_limits` by the preflight bridge, then retained dormant. It is not a
+main schema column; the API may accept `module_minutes` as an alias.
 | created_at | timestamptz | |
 
 ## roster_emails
@@ -87,15 +99,23 @@ One row = one exam session for one student in one event.
 | email | text not null | student identity (login email) |
 | variant_ids | uuid[] not null | ordered, one variant per logical question |
 | started_at | timestamptz | |
-| ends_at | timestamptz | `LEAST(now() + duration, starts_at + duration)` |
+| ends_at | timestamptz | `now() + duration_min`; the full sum of the paper's section limits, not the event window |
+| duration_min | int | **added in migration 009** - the paper's full time, frozen at creation |
 | current_index | int not null default 0 | last question the student saw |
 | status | text not null | `active` \| `submitted` (was `in_progress`) |
 | submitted_at | timestamptz | |
-| submit_reason | text | `student` \| `time_expired` \| `max_warnings` \| `force_submit` \| `integrity_lockout` |
+| submit_reason | text | `student` \| `time_expired` \| `max_warnings` \| `force_submit` \| `integrity_lockout` \| `removed` |
 | lock_reason | text | why the paper was locked (added in migration 002) |
-| fullscreen_state | boolean | the last fullscreen state the server saw in a heartbeat (added in migration 003) — the backstop for the client's own fullscreen detection |
+| fullscreen_state | boolean | the last fullscreen state the server saw in a heartbeat (added in migration 003) |
 | score | int | graded total |
-| selected_categories | text[] | **added in migration 005** — the technical domains the student chose, frozen with the paper (R-015) |
+| selected_categories | text[] | **added in migration 005** - the technical domains the student chose, frozen with the paper |
+| last_seen_at | timestamptz | **added in migration 006** - last client contact |
+| source | text not null default 'web' | **added in migration 006** - delivery source |
+| option_orders | jsonb not null default '[]' | **added in migration 009** - displayed order of authored option indexes per question |
+| access_revoked_at | timestamptz | **added in migration 007** - roster removal / access revoked |
+| attempt_no | int not null default 1 | **added in migration 007** - restart counter |
+| result_snapshot | jsonb | **added in migration 008** - graded result frozen at submit |
+| result_graded_at | timestamptz | **added in migration 008** - grading time |
 | unique(event_id, email) | | one paper per student per event |
 
 ## paper_questions
@@ -113,6 +133,29 @@ so the paper keeps its own copy.
 | difficulty | int not null default 3 | 1..5, CHECK bounded |
 | category | text | **added in migration 005** — the domain (the category) of the question, frozen with the paper, so re-tagging a question never moves a section of an exam that already ran (R-015) |
 | pk(paper_id, qno) | | one row per question of the paper |
+
+## paper_sections
+Per-paper section clocks (`007`). Each row freezes a section's limit and records
+when its clock started and completed.
+
+| col | type | notes |
+|---|---|---|
+| paper_id | uuid fk papers | cascade delete |
+| position | int | display order |
+| category | text | section/domain name |
+| limit_min | int | minutes for this section |
+| started_at | timestamptz | starts when the first question of the section opens |
+| ends_at | timestamptz | computed section deadline |
+| completed_at | timestamptz | set when the section finishes or expires |
+| pk(paper_id, category) | | unique(paper_id, position) |
+
+## admin_actions
+Audit log (`007`): event/roster edits, resume/restart, lock, force-submit and
+other admin mutations.
+
+## paper_attempt_history
+Snapshot of a previous attempt before restart (`007`): attempt number, event,
+answers/result state, submit reason and timestamps.
 
 ## answers
 | col | type | notes |
@@ -148,6 +191,9 @@ Full event log for the live dashboard (R-032).
 | created_at | timestamptz | |
 
 ## recordings
+Legacy, retained for data preservation. Screen recording upload/review is
+disabled; no current API writes or serves these rows.
+
 | col | type | notes |
 |---|---|---|
 | id | uuid pk | |
@@ -264,8 +310,46 @@ re-applied on every boot):
 
 `schema.sql` (fresh volumes) mirrors all of it. The backfill file also fills
 `paper_questions.category` for the papers that ran before the migration, the
-same way it fills the skill and the difficulty — today's tags, frozen from
+same way it fills the skill and the difficulty - today's tags, frozen from
 then on.
+
+## Migration 006 - per-question delivery
+`server/sql/migrations/006_question_delivery.sql`:
+- `papers.last_seen_at`, `papers.source`.
+- `warnings.source`, `warnings.client_event_id`.
+- One-time WebSocket ticket support.
+
+## Migration 007 - admin controls and section timing
+`server/sql/migrations/007_admin_controls.sql`:
+- `exam_events.section_limits`.
+- `paper_sections` with `position`, `limit_min`, `started_at`, `completed_at`.
+- `admin_actions` and `paper_attempt_history`.
+- Roster soft delete, `papers.access_revoked_at`, `papers.attempt_no`.
+- `submit_reason` accepts `removed`.
+- Target bridge: rename target `paper_sections`, map `idx→position`,
+  `minutes→limit_min`, `finished_at→completed_at`, renumber, retain
+  `paper_sections_target_legacy`; map target proctor `retried → restarted`.
+
+## Migration 008 - sequential sections and results
+`server/sql/migrations/008_sequential_sections_results.sql`:
+- `papers.result_snapshot`, `papers.result_graded_at`.
+- `exam_events.results_visibility` and publication metadata.
+- Sequential section completion semantics.
+
+## Migration 009 - option orders and paper timing
+`server/sql/migrations/009_option_orders.sql`:
+- `papers.option_orders`.
+- `papers.duration_min`.
+- Target `module_minutes` is copied into `section_limits`; never auto-repair
+  malformed data.
+
+## Migration 010 - results visibility
+`server/sql/migrations/010_results_visibility.sql`:
+- Final `results_visibility` CHECK (`immediate`, `after_all_submitted`,
+  `manual`, `never`).
+- `results_published`, `results_published_at`, `results_published_by`,
+  `results_expires_at`.
+- Preserve target values exactly; no blanket flip of post-target-`009` events.
 
 ## The backfill — data file, not a migration
 `server/sql/backfill.sql` rebuilds the frozen competency of the papers that

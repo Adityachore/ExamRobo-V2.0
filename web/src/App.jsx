@@ -15,7 +15,6 @@ import Roster from './pages/admin/Roster.jsx';
 import Bank from './pages/admin/Bank.jsx';
 import Live from './pages/admin/Live.jsx';
 import Results from './pages/admin/Results.jsx';
-import Recordings from './pages/admin/Recordings.jsx';
 import Flags from './pages/admin/Flags.jsx';
 import Tickets from './pages/admin/Tickets.jsx';
 
@@ -56,7 +55,6 @@ export default function App() {
             <Route path="bank" element={<Bank />} />
             <Route path="live" element={<Live />} />
             <Route path="results" element={<Results />} />
-            <Route path="recordings" element={<Recordings />} />
             <Route path="flags" element={<Flags />} />
             <Route path="tickets" element={<Tickets />} />
           </Route>

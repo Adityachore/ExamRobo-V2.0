@@ -1,5 +1,12 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Applied migration ledger. migrate.js also creates this for existing volumes.
+CREATE TABLE schema_migrations (
+  filename text PRIMARY KEY,
+  checksum text NOT NULL,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE admins (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text UNIQUE NOT NULL,
@@ -22,7 +29,18 @@ CREATE TABLE exam_events (
   -- Domain selection (migration 005): 'fixed' or 'select', plus the rules of a
   -- domain-aware event (common categories, allowed domains, min/max).
   domain_mode text NOT NULL DEFAULT 'fixed',
-  domain_rules jsonb NOT NULL DEFAULT '{}'::jsonb
+  domain_rules jsonb NOT NULL DEFAULT '{}'::jsonb,
+  section_limits jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- duration_min is the event window: when students may start. It is not the
+  -- paper deadline. A paper gets the full sum of its own section limits.
+  -- Result publication (008 + 010). results_visibility is authoritative;
+  -- results_published is the manual-mode compatibility mirror.
+  results_visibility text NOT NULL DEFAULT 'manual'
+    CHECK (results_visibility IN ('immediate','after_all_submitted','manual','never')),
+  results_published boolean NOT NULL DEFAULT false,
+  results_published_at timestamptz,
+  results_published_by text,
+  results_expires_at timestamptz
 );
 
 CREATE TABLE roster_emails (
@@ -31,6 +49,9 @@ CREATE TABLE roster_emails (
   email text NOT NULL,
   name text,
   updated_at timestamptz NOT NULL DEFAULT now(),
+  removed_at timestamptz,
+  removed_reason text,
+  removed_by text,
   UNIQUE (event_id, email)
 );
 
@@ -73,7 +94,7 @@ CREATE TABLE papers (
   current_index int NOT NULL DEFAULT 0 CHECK (current_index >= 0),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','submitted')),
   submitted_at timestamptz,
-  submit_reason text CHECK (submit_reason IN ('student','time_expired','max_warnings','force_submit','integrity_lockout')),
+  submit_reason text CHECK (submit_reason IN ('student','time_expired','max_warnings','force_submit','integrity_lockout','removed')),
   lock_reason text,
   fullscreen_state boolean,
   score int,
@@ -82,7 +103,30 @@ CREATE TABLE papers (
   source text NOT NULL DEFAULT 'web',
   -- The technical domains the student chose, frozen with the paper (005).
   selected_categories text[],
+  -- The whole paper's time, frozen at creation (009). The event window only
+  -- limits when an attempt may start.
+  duration_min int,
+  -- Display order of authored option indexes, per question position (009).
+  option_orders jsonb NOT NULL DEFAULT '[]'::jsonb,
+  -- Attempt controls (007).
+  access_revoked_at timestamptz,
+  attempt_no int NOT NULL DEFAULT 1,
+  -- The graded result, frozen at submission (008).
+  result_snapshot jsonb,
+  result_graded_at timestamptz,
   UNIQUE (event_id, email)
+);
+
+CREATE TABLE paper_sections (
+  paper_id uuid NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  position int NOT NULL CHECK (position >= 0),
+  category text NOT NULL,
+  limit_min int NOT NULL CHECK (limit_min > 0),
+  started_at timestamptz,
+  ends_at timestamptz,
+  completed_at timestamptz,
+  PRIMARY KEY (paper_id, category),
+  UNIQUE (paper_id, position)
 );
 
 CREATE TABLE answers (
@@ -170,9 +214,42 @@ CREATE TABLE proctor_events (
     'started','submitted','tab_blur','fullscreen_exit','message',
     'clipboard','context_menu','print','screenshot_key','recording_revoked',
     'second_window','second_session','display_change','devtools',
-    'share_surface','os_chord','locked','network_gap'
+    'share_surface','os_chord','locked','network_gap',
+    'resumed','restarted','removed'
   )),
   detail text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE admin_actions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_email text NOT NULL,
+  action text NOT NULL,
+  event_id uuid REFERENCES exam_events(id) ON DELETE SET NULL,
+  paper_id uuid REFERENCES papers(id) ON DELETE SET NULL,
+  target_email text,
+  reason text,
+  detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE paper_attempt_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  paper_id uuid NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  attempt_no int NOT NULL,
+  event_id uuid NOT NULL,
+  email text NOT NULL,
+  variant_ids uuid[] NOT NULL DEFAULT '{}',
+  selected_categories text[] NOT NULL DEFAULT '{}',
+  answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+  warnings jsonb NOT NULL DEFAULT '[]'::jsonb,
+  section_state jsonb NOT NULL DEFAULT '[]'::jsonb,
+  score int,
+  submit_reason text,
+  started_at timestamptz,
+  ended_at timestamptz,
+  reason text,
+  created_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -185,7 +262,17 @@ CREATE INDEX idx_papers_last_seen ON papers (last_seen_at);
 CREATE INDEX idx_questions_skill ON questions (skill_id);
 CREATE INDEX idx_paper_questions_skill ON paper_questions (skill_id);
 CREATE INDEX idx_paper_questions_difficulty ON paper_questions (difficulty);
+CREATE INDEX idx_paper_sections_paper ON paper_sections (paper_id, position);
+CREATE INDEX idx_paper_sections_active ON paper_sections (paper_id, position) WHERE completed_at IS NULL;
+CREATE INDEX idx_papers_active_event ON papers (event_id) WHERE status = 'active';
+CREATE INDEX idx_papers_submitted_event ON papers (event_id, submitted_at DESC) WHERE status = 'submitted';
+CREATE UNIQUE INDEX idx_feedback_paper_unique ON feedback (paper_id);
+CREATE INDEX idx_paper_questions_category ON paper_questions (paper_id, category);
 CREATE INDEX idx_proctor_events_event ON proctor_events (event_id, created_at DESC);
 CREATE INDEX idx_proctor_events_paper ON proctor_events (paper_id, created_at DESC);
 CREATE INDEX idx_roster_email ON roster_emails (email);
 CREATE INDEX idx_flags_event ON flags (event_id);
+CREATE INDEX idx_admin_actions_created ON admin_actions (created_at DESC);
+CREATE INDEX idx_admin_actions_event ON admin_actions (event_id, created_at DESC);
+CREATE INDEX idx_admin_actions_paper ON admin_actions (paper_id, created_at DESC);
+CREATE INDEX idx_paper_attempt_history_paper ON paper_attempt_history (paper_id, created_at DESC);

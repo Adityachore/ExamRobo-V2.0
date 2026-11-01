@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { CalendarDays, Database, FileVideo, Flag, LogOut, Menu, Radio, Ticket, Trophy, Users, X } from 'lucide-react';
+import { CalendarDays, Database, Flag, LogOut, Menu, Radio, Ticket, Trophy, Users, X } from 'lucide-react';
 import { auth } from '../lib/api.js';
 import { Button, Logo, cx } from './ui.jsx';
 
@@ -10,7 +10,6 @@ const NAV = [
   ['/admin/bank', 'Bank', Database],
   ['/admin/live', 'Live', Radio],
   ['/admin/results', 'Results', Trophy],
-  ['/admin/recordings', 'Recordings', FileVideo],
   ['/admin/flags', 'Flags', Flag],
   ['/admin/tickets', 'Tickets', Ticket],
 ];

@@ -1,20 +1,65 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { CircleCheckBig, LogOut } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Check, Star } from 'lucide-react';
 import { api, auth } from '../../lib/api.js';
 import { fmtDateTime } from '../../lib/format.js';
-import { Badge, Banner, Button, Card, Skeleton, Tabs, Textarea, cx } from '../../components/ui.jsx';
+import { Banner, Button, Skeleton, Tabs, Textarea, cx } from '../../components/ui.jsx';
+import { Aurora, Burst, CountUp, GlowButton, Item, Stagger } from '../../components/motion.jsx';
 import { StudentHeader } from '../../components/StudentShell.jsx';
 
 const LABELS = ['Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
 
+function resultBlockedCopy(state) {
+  if (!state) return null;
+  if (state.code === 'removed') {
+    return {
+      tone: 'error',
+      title: 'Your access to this exam was removed.',
+      body: 'Your attempt has been recorded, but the exam team has removed your access to this result. Contact them if you think this is a mistake.',
+    };
+  }
+  if (state.code === 'results_expired') {
+    return {
+      tone: 'warn',
+      title: 'The result window has closed.',
+      body: state.results_expires_at
+        ? `Results were available until ${fmtDateTime(state.results_expires_at)}. Contact the exam team if you still need your score.`
+        : 'Results are no longer available for this exam. Contact the exam team if you still need your score.',
+    };
+  }
+  if (state.code === 'results_unavailable') {
+    return {
+      tone: 'warn',
+      title: 'Results are not available for this exam.',
+      body: 'The exam team has chosen not to publish results for this exam. Contact them if you have a question about your attempt.',
+    };
+  }
+  if (state.visibility === 'after_all_submitted') {
+    return {
+      tone: 'info',
+      title: 'Waiting for all participants.',
+      body: 'Your attempt has been recorded. Results will be released after every participant has submitted. Sign in again later with the same email address to view your score.',
+    };
+  }
+  return {
+    tone: 'info',
+    title: 'Results are not published yet.',
+    body: 'Your attempt has been recorded. The exam team will publish results when they are ready. Sign in again later with the same email address to view your score.',
+  };
+}
+
 function Ring({ value, max }) {
   const pct = max ? value / max : 0;
-  const r = 52, c = 2 * Math.PI * r;
+  const r = 56, c = 2 * Math.PI * r;
   return (
-    <div className="relative grid h-36 w-36 place-items-center" role="img" aria-label={`Score ${value} out of ${max}`}>
-      <svg viewBox="0 0 120 120" className="absolute inset-0 -rotate-90"><circle cx="60" cy="60" r={r} fill="none" stroke="#DCE7F4" strokeWidth="9" /><circle cx="60" cy="60" r={r} fill="none" stroke="#2563EB" strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} /></svg>
-      <div className="tnum text-center"><div className="text-3xl font-semibold leading-none">{value}<span className="text-base font-normal text-muted"> / {max}</span></div><div className="mt-1 text-xs text-muted">Total score</div></div>
+    <div className="relative grid h-44 w-44 place-items-center" role="img" aria-label={`Score ${value} out of ${max}`}>
+      <svg viewBox="0 0 128 128" className="absolute inset-0 -rotate-90" aria-hidden>
+        <defs><linearGradient id="rg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#2563eb" /><stop offset="1" stopColor="#38bdf8" /></linearGradient></defs>
+        <circle cx="64" cy="64" r={r} fill="none" stroke="#e2e8f0" strokeWidth="10" />
+        <motion.circle cx="64" cy="64" r={r} fill="none" stroke="url(#rg)" strokeWidth="10" strokeLinecap="round" strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - pct) }} transition={{ duration: 1.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }} />
+      </svg>
+      <div className="tnum text-center"><div className="text-5xl font-semibold leading-none"><CountUp value={value} /><span className="text-lg font-normal text-muted"> / {max}</span></div><div className="mt-2 text-xs uppercase tracking-wider text-muted">Total score</div></div>
     </div>
   );
 }
@@ -23,6 +68,7 @@ function Ring({ value, max }) {
 export default function Result() {
   const nav = useNavigate();
   const [res, setRes] = useState(null);
+  const [pending, setPending] = useState(null);
   const [error, setError] = useState(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -37,6 +83,8 @@ export default function Result() {
       .catch((e) => {
         if (!alive) return;
         if (e.status === 409 && e.data?.code === 'active') nav('/exam', { replace: true });
+        else if (e.status === 409 && e.data?.code === 'results_not_published') setPending(e.data);
+        else if (e.status === 403 && ['results_unavailable', 'results_expired', 'removed'].includes(e.data?.code)) setPending(e.data);
         else setError(e.status === 404 ? 'No result found for this sign-in.' : e.message);
       });
     return () => { alive = false; };
@@ -52,68 +100,57 @@ export default function Result() {
   };
   const finish = () => { auth.clear('student'); nav('/', { replace: true }); };
 
-  return (
-    <div className="min-h-screen">
-      <StudentHeader />
-      <main className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6 sm:py-10">
-        {error && <Banner tone="error" title="Could not load your result.">{error}</Banner>}
-        {!res && !error && <Card className="space-y-4 p-6 sm:p-8" aria-busy="true"><Skeleton className="h-8 w-64" /><Skeleton className="h-36" /></Card>}
-        {res && (
-          <>
-            <Card className="overflow-hidden">
-              <div className="relative border-b border-line bg-gradient-to-br from-ok-soft/80 via-white to-primary-soft/50 p-6 sm:p-8">
-                <div className="pointer-events-none absolute -right-10 -top-16 h-44 w-44 rounded-full bg-white/60" aria-hidden />
-                <div className="relative flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex gap-4">
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-green-200 bg-white text-ok-ink shadow-card"><CircleCheckBig size={28} aria-hidden /></span>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ok-ink">Attempt complete</p>
-                      <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Exam Submitted Successfully!</h1>
-                      <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">{res.event_name} — your responses were recorded on <span className="tnum text-body">{fmtDateTime(res.submitted_at)}</span>.</p>
-                    </div>
-                  </div>
-                  <Badge tone="ok">Submitted</Badge>
-                </div>
-              </div>
-              <div className="p-6 sm:p-8">
-                {res.submit_reason && res.submit_reason !== 'student' && (
-                  <Banner tone="warn" className="mb-4" live={false}>{{ max_warnings: 'Your exam was submitted automatically after the maximum number of warnings.', time_expired: 'Your exam was submitted automatically when time ran out.', force_submit: 'Your exam was submitted by the exam team.' }[res.submit_reason]}</Banner>
-                )}
-                <dl className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border border-line bg-canvas/50 px-4 py-3"><dt className="text-[11px] font-medium uppercase tracking-wide text-muted">Exam</dt><dd className="mt-1 truncate text-sm font-medium text-ink">{res.event_name}</dd></div>
-                  <div className="rounded-lg border border-line bg-canvas/50 px-4 py-3"><dt className="text-[11px] font-medium uppercase tracking-wide text-muted">Submitted</dt><dd className="tnum mt-1 text-sm font-medium text-ink">{fmtDateTime(res.submitted_at)}</dd></div>
-                  <div className="rounded-lg border border-line bg-canvas/50 px-4 py-3"><dt className="text-[11px] font-medium uppercase tracking-wide text-muted">Score</dt><dd className="tnum mt-1 text-sm font-medium text-ink">{res.total} / {res.max}</dd></div>
-                </dl>
-              </div>
-            </Card>
+  const celebrate = res && res.max > 0 && res.total / res.max >= 0.6 && (!res.submit_reason || res.submit_reason === 'student');
+  const [hover, setHover] = useState(0);
+  const blocked = resultBlockedCopy(pending);
 
-            <Card className="p-6 sm:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><h2 className="text-lg font-semibold tracking-tight">Your result</h2><p className="mt-0.5 text-sm text-muted">Score breakdown from your submitted attempt.</p></div>
-                <Badge tone="blue">Graded</Badge>
+  return (
+    <div className="relative isolate min-h-screen overflow-hidden">
+      <Aurora tone="green" />
+      <StudentHeader />
+      <main className="mx-auto max-w-3xl space-y-4 px-4 py-8">
+        {error && <Banner tone="error" title="Could not load your result.">{error}</Banner>}
+        {pending && blocked && (
+          <div className="er-glass space-y-4 rounded-3xl p-6 sm:p-8">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Exam submitted</h1>
+              <p className="mt-1 text-sm text-muted">Your attempt has been recorded. Your score is not visible on this page.</p>
+            </div>
+            <Banner tone={blocked.tone} title={blocked.title}>{blocked.body}</Banner>
+            <div className="flex justify-end"><Button onClick={finish}>Back to sign in</Button></div>
+          </div>
+        )}
+        {!res && !error && !pending && <div className="er-glass space-y-4 rounded-3xl p-6" aria-busy="true"><Skeleton className="h-6 w-48" /><Skeleton className="h-32" /></div>}
+        {res && (
+          <Stagger className="space-y-4">
+            {celebrate && <Burst />}
+            <Item className="er-glass rounded-3xl p-6 sm:p-8">
+              <div className="flex items-center gap-4">
+                <motion.span initial={{ scale: 0, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.2 }} className="grid h-12 w-12 place-items-center rounded-2xl bg-ok-soft text-ok"><Check size={24} aria-hidden /></motion.span>
+                <div><h1 className="text-2xl font-semibold tracking-tight">Exam result</h1><p className="text-sm text-muted">{res.event_name} — your exam has been submitted.</p></div>
               </div>
-              <div className="mt-6 grid items-center gap-7 sm:grid-cols-[auto_1fr]">
-                <div className="mx-auto sm:mx-0"><Ring value={res.total} max={res.max} /></div>
+              {res.submit_reason && res.submit_reason !== 'student' && (
+                <Banner tone="warn" className="mt-4" live={false}>{{ max_warnings: 'Your exam was submitted after the maximum number of warnings.', time_expired: 'Your exam was submitted automatically when time ran out.', force_submit: 'Your exam was submitted by the exam team.' }[res.submit_reason]}</Banner>
+              )}
+              <div className="mt-7 grid items-center gap-8 sm:grid-cols-[auto_1fr]">
+                <div className="mx-auto"><Ring value={res.total} max={res.max} /></div>
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">By section</h3>
-                  <ul className="mt-2 divide-y divide-line">
-                    {res.sections.map((s) => (
-                      <li key={s.name} className="py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-medium text-body">{s.name}</span>
-                          <span className="tnum text-sm text-body">{s.score} / {s.total}</span>
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-canvas" aria-hidden><div className="h-full rounded-full bg-primary" style={{ width: `${s.total ? Math.min(100, (s.score / s.total) * 100) : 0}%` }} /></div>
+                  <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Section breakdown</h2>
+                  <ul className="space-y-3">
+                    {res.sections.map((sec, idx) => (
+                      <li key={sec.name}>
+                        <div className="mb-1 flex justify-between text-sm"><span>{sec.name}</span><span className="tnum font-medium">{sec.score} / {sec.total}</span></div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100"><motion.div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400" initial={{ width: 0 }} animate={{ width: `${sec.total ? (sec.score / sec.total) * 100 : 0}%` }} transition={{ duration: 1.1, delay: 0.5 + idx * 0.12, ease: [0.22, 1, 0.36, 1] }} /></div>
                       </li>
                     ))}
                   </ul>
+                  <p className="mt-4 text-sm text-muted">Submitted at <span className="tnum text-ink">{fmtDateTime(res.submitted_at)}</span></p>
                 </div>
               </div>
-            </Card>
+            </Item>
 
-            {/* What the exam measured: the competency the paper froze. */}
             {((res.competency?.skills?.length ?? 0) > 0 || (res.competency?.difficulties?.length ?? 0) > 0) && (
-              <Card className="p-6 sm:p-8">
+              <Item className="er-glass rounded-3xl p-6 sm:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold tracking-tight">What this exam measured</h2>
@@ -122,7 +159,7 @@ export default function Result() {
                   <Tabs label="Breakdown" value={view} onChange={setView} items={[['skills', 'By skill'], ['difficulties', 'By difficulty']]} />
                 </div>
                 <ul className="mt-5 divide-y divide-line">
-                  {(view === 'skills' ? res.competency.skills : res.competency.difficulties).map((row) => (
+                  {(view === 'skills' ? res.competency.skills : res.competency.difficulties)?.map((row) => (
                     <li key={view === 'skills' ? row.code ?? 'untagged' : `level-${row.level}`} className="flex items-center justify-between gap-4 py-3">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-body">{row.name || row.label}</p>
@@ -135,31 +172,38 @@ export default function Result() {
                     </li>
                   ))}
                 </ul>
-              </Card>
+              </Item>
             )}
 
-            <Card className="p-6 sm:p-8">
-              {sent ? <Banner tone="ok" title="Thank you for your feedback." live /> : (
+            <Item className="er-glass rounded-3xl p-6 sm:p-8">
+              {sent ? (
+                <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}><Banner tone="ok" title="Thank you for your feedback." live /></motion.div>
+              ) : (
                 <form onSubmit={sendFeedback} className="space-y-4" noValidate>
-                  <div><h2 className="text-lg font-semibold tracking-tight">We'd love your feedback</h2><p className="mt-0.5 text-sm text-muted">How was your exam experience?</p></div>
+                  <div><h2 className="text-lg font-semibold">We'd love your feedback</h2><p className="text-sm text-muted">How was your exam experience?</p></div>
                   <fieldset>
                     <legend className="sr-only">Rating from 1 to 5</legend>
-                    <div className="flex flex-wrap gap-2">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <label key={n} className={cx('tnum cursor-pointer rounded-md border px-3 py-2 text-sm transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary', rating === n ? 'border-primary bg-primary-soft text-primary' : 'border-line text-body hover:border-primary/30 hover:bg-primary-soft/30')}>
-                          <input type="radio" name="rating" className="sr-only" checked={rating === n} onChange={() => setRating(n)} />{n} · {LABELS[n - 1]}
-                        </label>
-                      ))}
+                    <div className="flex items-center gap-1" onMouseLeave={() => setHover(0)}>
+                      {[1, 2, 3, 4, 5].map((n) => {
+                        const on = n <= (hover || rating);
+                        return (
+                          <label key={n} onMouseEnter={() => setHover(n)} className="cursor-pointer rounded-lg p-1 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary">
+                            <input type="radio" name="rating" className="sr-only" checked={rating === n} onChange={() => setRating(n)} aria-label={`${n} — ${LABELS[n - 1]}`} />
+                            <motion.span whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.9 }} animate={{ scale: rating === n ? [1, 1.3, 1] : 1 }} className="block"><Star size={30} className={cx('transition-colors', on ? 'fill-amber-400 text-amber-400' : 'text-slate-300')} aria-hidden /></motion.span>
+                          </label>
+                        );
+                      })}
+                      <span className="ml-3 text-sm font-medium text-muted" aria-live="polite">{LABELS[(hover || rating) - 1] || ''}</span>
                     </div>
                   </fieldset>
-                  <div><label htmlFor="fb" className="mb-1.5 block text-[13px] font-medium text-body">Comments (optional)</label><Textarea id="fb" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} /></div>
+                  <div><label htmlFor="fb" className="mb-1.5 block text-[13px] font-medium">Comments (optional)</label><Textarea id="fb" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} className="rounded-xl" /></div>
                   {fbErr && <Banner tone="error">{fbErr}</Banner>}
-                  <Button type="submit" loading={busy}>Send feedback</Button>
+                  <GlowButton type="submit" loading={busy} shine={false}>Send feedback</GlowButton>
                 </form>
               )}
-            </Card>
-            <div className="flex justify-end"><Button onClick={finish}><LogOut size={16} aria-hidden />Finish &amp; sign out</Button></div>
-          </>
+            </Item>
+            <Item className="flex justify-end"><Button onClick={finish}>Finish &amp; sign out</Button></Item>
+          </Stagger>
         )}
       </main>
     </div>

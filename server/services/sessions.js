@@ -1,14 +1,14 @@
 import { q } from '../db.js';
 import { hydrateManifest } from './paper.js';
+import { sectionStateForPaper } from './sections.js';
 import { gradePaper } from './grading.js';
 import { sessionViewById } from './views.js';
 import { toAdmins, toStudent } from './live.js';
 
-// The point at which an attempt is flagged for review. It is not a submission
-// trigger: only the student, the clock, a force-submit or an admin lock ends an
-// exam.
+// The point at which a warning-tier event submits the paper. The count lives
+// on the server; the client can only report signals, never the consequence.
 export const MAX_WARNINGS = 3;
-export const SUBMIT_REASONS = ['student', 'time_expired', 'max_warnings', 'force_submit', 'integrity_lockout'];
+export const SUBMIT_REASONS = ['student', 'time_expired', 'max_warnings', 'force_submit', 'integrity_lockout', 'removed'];
 
 export async function loadEvent(eventId) {
   const { rows } = await q(`SELECT * FROM exam_events WHERE id = $1`, [eventId]);
@@ -22,6 +22,18 @@ export function eventEnd(event) {
 export async function loadPaper(eventId, email) {
   const { rows } = await q(`SELECT * FROM papers WHERE event_id = $1 AND email = $2`, [eventId, email]);
   return rows[0] || null;
+}
+
+// A signed-in student whose roster row was removed must not be able to start
+// a paper. An active paper is submitted when the removal happens; this check
+// covers the window where no paper exists yet.
+export async function rosterRemoved(eventId, email) {
+  const { rows } = await q(
+    `SELECT 1 FROM roster_emails
+      WHERE event_id = $1 AND email = $2 AND removed_at IS NOT NULL`,
+    [eventId, email],
+  );
+  return rows.length > 0;
 }
 
 export async function loadPaperById(id) {
@@ -64,10 +76,18 @@ export async function examState(paper) {
     answersByVariant(paper),
     warningCount(paper.id),
   ]);
+  const now = Date.now();
+  const sections = await sectionStateForPaper(paper.id, paperView.sections);
+  const sectionTimings = sections
+    .filter((section) => section.timing)
+    .map((section) => ({ category: section.name, ...section.timing }));
+  const activeSection = sectionTimings.find((section) => section.state === 'active');
   return {
     status: paper.status,
     paper_id: paper.id,
-    paper: paperView,
+    paper: { ...paperView, sections },
+    sections: sectionTimings,
+    active_section: activeSection?.category || null,
     answers,
     current_index: paper.current_index ?? 0,
     warnings,
@@ -112,9 +132,9 @@ export async function broadcastSession(paper) {
 }
 
 // A cheap update for the dashboard. The full session view costs six
-// aggregated counts per paper, and it used to run on every answer click and
-// every recording chunk. These updates carry the values we already have, so
-// the dashboard stays live without a query per keystroke.
+// aggregated counts per paper, and it used to run on every answer click.
+// These updates carry the values we already have, so the dashboard stays live
+// without a query per keystroke.
 export function broadcastSessionPatch(paper, patch) {
   toAdmins({
     type: 'session_patch',
@@ -129,15 +149,22 @@ export async function submitPaper(paper, reason) {
   const { rows } = await q(
     `UPDATE papers SET status='submitted', submitted_at=now(), submit_reason=$2
       WHERE id=$1 AND status='active'
-      RETURNING id, event_id, email, variant_ids, started_at, ends_at, current_index,
-                status, submitted_at, submit_reason, lock_reason, score`,
+      RETURNING id, event_id, email, variant_ids, option_orders, started_at, ends_at,
+                current_index, status, submitted_at, submit_reason, lock_reason, score`,
     [paper.id, reason],
   );
   if (!rows.length) return loadPaperById(paper.id);
   const updated = rows[0];
   const result = await gradePaper(updated);
-  await q(`UPDATE papers SET score = $2 WHERE id = $1`, [updated.id, result.total]);
+  await q(
+    `UPDATE papers
+        SET score = $2, result_snapshot = $3::jsonb, result_graded_at = now()
+      WHERE id = $1`,
+    [updated.id, result.total, JSON.stringify(result)],
+  );
   updated.score = result.total;
+  updated.result_snapshot = result;
+  updated.result_graded_at = new Date().toISOString();
   await logProctorEvent(updated, 'submitted', reason);
   await broadcastSession(updated);
   toStudent(updated.email, { type: 'submitted', reason });

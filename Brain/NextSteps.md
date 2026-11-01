@@ -42,8 +42,8 @@ Statuses: `[ ]` PENDING `[>]` IN-PROGRESS `[V]` VERIFYING `[X]` COMPLETED `[B]` 
 |---|---|---|---|---|---|
 | T-401 | R-030 | Warning capture API + 3-strike server enforcement | senior-backend-engineer-agent | T-301 | [X] COMPLETED |
 | T-402 | R-030 | useProctor hook (fullscreen, tab-blur, escalation) | senior-frontend-engineer-agent | T-401 | [X] COMPLETED |
-| T-403 | R-031 | Recording chunk upload endpoint (disk, retry-safe) | senior-backend-engineer-agent | T-301 | [X] COMPLETED |
-| T-404 | R-031 | Client MediaRecorder + chunked upload hook | senior-frontend-engineer-agent | T-403 | [X] COMPLETED |
+| T-403 | R-031 | Recording chunk upload endpoint (disk, retry-safe) | senior-backend-engineer-agent | T-301 | [X] SUPERSEDED - recorder removed; table/files retained |
+| T-404 | R-031 | Client MediaRecorder + chunked upload hook | senior-frontend-engineer-agent | T-403 | [X] SUPERSEDED - recorder removed |
 | T-405 | R-032 | WS proctor channel: telemetry + force-submit + message | senior-backend-engineer-agent | T-401 | [X] COMPLETED |
 | T-406 | R-032 | Live proctor dashboard UI | senior-frontend-engineer-agent | T-405 | [X] COMPLETED |
 
@@ -63,7 +63,7 @@ Statuses: `[ ]` PENDING `[>]` IN-PROGRESS `[V]` VERIFYING `[X]` COMPLETED `[B]` 
 |---|---|---|---|---|---|
 | T-601 | R-050 | Results + leaderboard API + CSV export | senior-backend-engineer-agent | T-501 | [X] COMPLETED |
 | T-602 | R-050 | Results admin UI | senior-frontend-engineer-agent | T-601 | [X] COMPLETED |
-| T-603 | R-051 | Recording review API + player UI | senior-frontend-engineer-agent | T-403 | [X] COMPLETED |
+| T-603 | R-051 | Recording review API + player UI | senior-frontend-engineer-agent | T-403 | [X] SUPERSEDED - recording review removed |
 
 ## Phase 7 — Hardening & Deploy
 
@@ -218,8 +218,64 @@ everybody. Registration is not a feature - the roster is the eligibility list.
 | T-1210 | R-034 | Connection indicator and persistent answer queue: `useConnectionStatus`, `ConnectionBadge`, Runner offline/flush/queue-persist, admin last-contact | senior-frontend-engineer-agent | T-1208 | [X] COMPLETED (web build pass; live run pending) |
 | T-1211 | R-034 | Frontend hardening: nginx CSP/no-store, k6 per-question load, admin `last_seen_at` | senior-devops-engineer-agent | T-1208 | [X] COMPLETED (web build pass; k6 not run) |
 
+## Phase 16 — Admin controls, section timing and attempt recovery (2026-10-26)
+
+| ID | Req | Task | Agent | Depends On | Status |
+|---|---|---|---|---|---|
+| T-1301 | R-005 | Migration 007 (`section_limits`, `paper_sections`, `admin_actions`, `paper_attempt_history`, roster soft-delete, `access_revoked_at`, `attempt_no`, `submit_reason='removed'`) + `schema.sql` mirror | senior-backend-engineer-agent | T-1201 | [X] COMPLETED |
+| T-1302 | R-005 | Event configuration service: validation, derived duration, question range, per-student `paperDuration` for select events | senior-backend-engineer-agent | T-1301 | [X] COMPLETED |
+| T-1303 | R-006 | Event CRUD: create, edit blocked after the first paper, typed-name delete, cascade cleanup, active-session kick and audit | senior-backend-engineer-agent | T-1302 | [X] COMPLETED |
+| T-1304 | R-006 | Roster CRUD: single add, edit, soft delete, bulk remove, restore, CSV export, `has_paper`, transactional upsert | senior-backend-engineer-agent | T-1301 | [X] COMPLETED |
+| T-1305 | R-020 | Section timing engine: clocks start on first question open, expired sections lock while the paper stays live, server-side answer/question guards | senior-backend-engineer-agent | T-1301 | [X] COMPLETED |
+| T-1306 | R-032 | Resume/restart: only lockout/force-submit/expiry, preserved answers, reset section clocks, admin minutes and reason; restart snapshots the old attempt and increments `attempt_no` | senior-backend-engineer-agent | T-1305 | [X] COMPLETED |
+| T-1307 | R-032 | Admin UI: Events/Roster/Live CRUD dialogs, pagination, resume/restart actions and new proctor kinds | senior-frontend-engineer-agent | T-1303,T-1304,T-1306 | [X] COMPLETED |
+| T-1308 | R-015 | Event-scoped domain selection in Waiting/Exam, section countdowns/locks in Runner, removed/restarted/resumed socket handling | senior-frontend-engineer-agent | T-1305 | [X] COMPLETED |
+| T-1309 | — | Regression guards: `event-config.test.js` and smoke coverage for per-student duration, section expiry, resume/restart, removal and restored access | critique-agent | T-1305,T-1306 | [X] COMPLETED — all phases PASS; 131 unit tests, web build, 156/156 smoke assertions |
+| T-1310 | — | Documentation sync for Phase 16 | memory-agent | T-1309 | [X] COMPLETED |
+
+## Phase 17 - Target migration, results visibility and paper timing (2026-10-28)
+
+The authoritative main tree is being prepared for an in-place target upgrade.
+The target's data, Calculator, import tooling, option shuffle, section timing
+and recordings data must survive; active recorder usage is removed.
+
+| ID | Req | Task | Agent | Depends On | Status |
+|---|---|---|---|---|---|
+| T-1401 | R-005 | Results schema: `results_visibility`, `results_published_at`, `results_published_by`, `results_expires_at`; option-order columns and migrations 009/010 | senior-backend-engineer-agent | T-1301 | [X] COMPLETED |
+| T-1402 | R-020 | Separate event start window from full paper deadline; explicit section limits; persisted option orders | senior-backend-engineer-agent | T-1401 | [X] COMPLETED |
+| T-1403 | R-040 | Central result state machine and student/admin result routes, including manual publish/extend/unpublish and post-event sign-in | senior-backend-engineer-agent | T-1401 | [X] COMPLETED |
+| T-1404 | R-040 | Map display choices through `option_orders` in grading and analytics | senior-backend-engineer-agent | T-1402 | [X] COMPLETED |
+| T-1405 | R-006 | Admin Events/Results/Live UI: window + visibility fields, result actions, live session detail | senior-frontend-engineer-agent | T-1403 | [X] COMPLETED |
+| T-1406 | R-020,R-040 | Student result blocked states, paper-time labels and Calculator port | senior-frontend-engineer-agent | T-1403,T-1405 | [X] COMPLETED |
+| T-1407 | - | Result, calculator and option-order regression tests; unit suite and web build | critique-agent | T-1404,T-1406 | [X] COMPLETED - 153 unit tests, web build clean; verify preflight/smoke skipped because services are down |
+| T-1408 | - | Target-shaped scratch DB restore and preflight | senior-devops-engineer-agent | T-1407 | [B] BLOCKED - Postgres/Redis are not running locally |
+| T-1409 | - | Target migration bridge, section/proctor data mapping and ledger checksum adoption | senior-backend-engineer-agent | T-1408 | [B] BLOCKED - needs the scratch DB |
+| T-1410 | - | Live target cutover and post-cutover smoke | senior-devops-engineer-agent | T-1409 | [B] BLOCKED - explicit user approval required |
+| T-1411 | - | Documentation sync: results visibility, paper timing, option orders, Calculator, disabled recorder | memory-agent | T-1407 | [X] COMPLETED |
+
+## Phase 18 — Final version delivery (2026-11-01)
+
+Single canonical tree, one verified deployable bundle, one tagged release.
+Plan approved by the user; `Brain/` is the communication medium.
+
+| ID | Req | Task | Agent | Depends On | Status |
+|---|---|---|---|---|---|
+| T-1501 | - | Freeze and archive: audit all trees, move `examrobo-3`/`examrobo-6` to `archive/versions/`, copy DB dumps to `archive/db/`, SHA256 manifest, consolidate audit placeholders | senior-devops-engineer-agent | - | [X] COMPLETED — 5,585 files hashed; `AUDIT_FINAL_REPORT.md` written |
+| T-1502 | - | Git baseline: branch `release/final`, commit all Phase 16/17 work and deletions, commit lockfiles | senior-devops-engineer-agent | T-1501 | [>] IN PROGRESS |
+| T-1503 | - | Backfill v3 assets: `server/DEPLOY.md`, `import_questions.js`, `imported_questions.json`, `_target_archive/007-009`, root `.env.example`, `docs/` content pack | senior-backend-engineer-agent | T-1502 | [ ] PENDING |
+| T-1504 | - | Adopt v3 production compose (`env_file`, `DB_PASSWORD`, `127.0.0.1:8083`, healthchecks) and Cloudflare-aware nginx | senior-devops-engineer-agent | T-1503 | [ ] PENDING |
+| T-1505 | - | Align `README.md` and `DEPLOY.md` with the single port, env naming and Cloudflare prerequisite | reference-agent | T-1504 | [ ] PENDING |
+| T-1506 | R-005,R-020 | Code fixes: seed `section_limits`, env-driven bcrypt rounds, legacy-recorder comment cleanup, option-order analytics regression test | senior-backend-engineer-agent | T-1505 | [ ] PENDING |
+| T-1507 | R-010 | Add `import-bank.mjs`: parse the 1100-question markdown, map domain/skill/difficulty, idempotent `--dry-run`/`--replace` | senior-backend-engineer-agent | T-1506 | [ ] PENDING |
+| T-1508 | R-010 | Normalize `Cyber Security`/`Cybersecurity`, import the full bank, validate 1100 / 100-per-domain / 330-715-55 / 4 options | senior-backend-engineer-agent | T-1507 | [ ] PENDING |
+| T-1509 | - | Full verification: `docker compose up -d --build`, migrate, seed, `npm run verify` (four phases PASS), web build | critique-agent | T-1508 | [ ] PENDING |
+| T-1510 | R-020,R-040 | Browser click-through 320/390/tablet/1280: login, waiting, domain picker, sections, calculator, submit, result, admin CRUD | critique-agent | T-1509 | [ ] PENDING |
+| T-1511 | - | Documentation sync: PRD/TRD/Schema/Flow/Design, `Start`, `Project`, `Project_Guide`, `compact`, rotate log if needed | memory-agent | T-1510 | [ ] PENDING |
+| T-1512 | - | Release: bump `Brain/VERSION` to v1.5.0, align package versions, merge `release/final` → `main`, push, tag `v1.5.0` | senior-devops-engineer-agent | T-1511 | [ ] PENDING |
+| T-1513 | - | Production cutover: fresh backup, scratch restore + bridge rehearsal, deploy, post-cutover smoke, rollback ready | senior-devops-engineer-agent | T-1512 | [B] BLOCKED — explicit user approval required |
+
 ## Phase 1.5 — Coding Round (deferred)
 
 | ID | Req | Task | Agent | Depends On | Status |
 |---|---|---|---|---|---|
-| T-901 | R-070 | Self-hosted Judge0 + gated coding round | startup-engineering-team-agent | T-603 | [ ] PENDING |
+| T-901 | R-070 | Self-hosted Judge0 + gated coding round | startup-engineering-team-agent | - | [ ] PENDING |

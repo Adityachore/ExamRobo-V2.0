@@ -3,9 +3,9 @@
 ## Happy path — student
 1. Open site → Login page, enter email.
 2. Email on roster → JWT, redirect `/waiting`.
-3. Waiting room shows exam name + live countdown to `starts_at`.
+3. Waiting room shows exam name, start time, exam window, paper time and a live countdown to `starts_at`.
 4. At start: "Begin Exam" → server generates paper (random variant per question, shuffled) → exam UI.
-5. Answer MCQs; each change autosaved (upsert + 15s snapshot). Fullscreen enforced.
+5. Answer MCQs; each change autosaved (upsert + 15s snapshot). Fullscreen enforced. A client-only Calculator is available from the Runner header/mobile bar. The paper runs for the full sum of its section limits; the event duration only controls when an attempt may start.
 6. Submit (or timer expiry → auto-submit) → grading → Result page with score.
 7. The result also shows **what the exam measured**: the score per skill and
    per difficulty, read from the frozen competency of the paper.
@@ -18,7 +18,7 @@
 4. Build the bank: add questions, then tag each one with the skill it measures
    and its difficulty. The Skills tab holds the taxonomy itself.
 5. During exam: Live Sessions view (telemetry per paper), actions message / force-submit / flag.
-6. After: Results + leaderboard + CSV export; Recording review; Flags & Tickets triage.
+6. After: Results + leaderboard + CSV export; result publication/extend/unpublish for manual events; Flags & Tickets triage. Recording review is disabled.
 7. The Results page also shows the **cohort**: every skill and every difficulty of
    the exam with its accuracy across all submissions, the weakest first, exportable
    as CSV. Expanding a student shows their own breakdown.
@@ -87,8 +87,15 @@
 - Reopen within `ends_at`, same email+event → paper rehydrated at last answered question; timer still server-authoritative.
 - Past `ends_at` → paper auto-submitted server-side at next request; no rejoin.
 
-### Recording chunk upload fails (R-031)
-- Client retries chunk with exponential backoff (max ~5 tries), then continues recording next chunks; gap logged server-side. Exam is never blocked by recording.
+### Screen recording (R-031, disabled)
+- Active capture, upload and review are removed. Existing recordings data is preserved but never served.
+
+### Result release (R-040)
+- `immediate`: shown on result page immediately after submit, including mid-event.
+- `after_all_submitted`: hidden with `results_not_published` until every existing paper is submitted; students without a paper do not block it.
+- `manual`: hidden until an admin publishes with an expiry; admins can extend, unpublish or republish.
+- `never`: hidden from students with `results_unavailable`; admins retain access.
+- Expired manual results return `results_expired`.
 
 ### Tab-blur escalation (R-030)
 - blur → warning row + live event; client banner count updates.

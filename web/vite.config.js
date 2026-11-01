@@ -6,7 +6,14 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: '127.0.0.1',
     port: 5173,
+    allowedHosts: [
+      'reorder-doorstep-mystified.ngrok-free.dev',
+      '.ngrok-free.app',
+      '.ngrok.io',
+      '.ngrok-free.dev',
+    ],
     proxy: {
       '/api': { target: 'http://localhost:4000', changeOrigin: true },
       '/ws': { target: 'ws://localhost:4000', ws: true },

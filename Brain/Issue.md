@@ -1,5 +1,30 @@
 # Project Issues & Technical Debt Log
 
+## Final release (Phase 18) — 2026-11-01
+
+Open items for the canonical v1.5.0 release. Strike through as each closes.
+
+- **91 uncommitted files** — all Phase 16/17 work was outside git. → T-1502.
+- **Root deploy could not start** — `.env` had no `POSTGRES_PASSWORD` and there
+  was no root `.env.example`; the compose file requires the variable. → T-1503/T-1504.
+- **Production assets live only in the archive** — `server/DEPLOY.md`, the import
+  tooling and `_target_archive/007-009` existed only in `examrobo-3`. → T-1503.
+- **Seeded events have no sections** — `server/scripts/seed.js:184` inserts the
+  event without `section_limits`, so seeded papers use the legacy single
+  deadline and never exercise the section engine. → T-1506.
+- **bcrypt rounds disagree** — `seed.js` uses 10, `create-admin.mjs` /
+  `BCRYPT_ROUNDS` use 12. → T-1506.
+- **Category name duplicated** — the taxonomy carries both `Cyber Security` and
+  `Cybersecurity`; the 1100-question bank needs one. → T-1507/T-1508.
+- **Cloudflare client IP is not forwarded** — nginx must map
+  `CF-Connecting-IP` / `X-Forwarded-Proto` or lockouts and the SEB hash use the
+  tunnel address. → T-1504.
+- **1100-question bank is not imported** — root has no parser for the markdown
+  bank; `examrobo-3` imported only 221 questions. → T-1507/T-1508.
+- **Verification has not run on a section-aware dataset** — Docker was down in
+  the last session. → T-1509.
+
+
 ## Critical & High Priority
 
 - ~~**Copy and paste were never counted**~~ → Fixed. The exam page has no

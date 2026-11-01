@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpenCheck, Check, CircleAlert, Clock, Maximize, ShieldCheck, TriangleAlert, Video, VideoOff } from 'lucide-react';
+import { BookOpenCheck, Check, CircleAlert, Clock, Maximize, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { Badge, Banner, Button, Drawer, Modal, Spinner, cx } from '../ui.jsx';
 import { clock, splitHMS, pad } from '../../lib/format.js';
 
@@ -53,6 +53,64 @@ export function ExamCountdown({ endsAt, serverTime, onExpire }) {
 }
 
 /**
+ * The clock of the section the student is currently working in. It is anchored
+ * to the server like the whole-paper clock, and it asks the runner to lock the
+ * section when the displayed time reaches zero. The server remains the judge.
+ */
+export function SectionCountdown({ timing, serverTime, onExpire }) {
+  const offset = useRef(0);
+  const expireRef = useRef(onExpire);
+  expireRef.current = onExpire;
+  const fired = useRef(null);
+
+  const compute = useCallback(() => {
+    if (!timing?.ends_at) return null;
+    const server = Date.now() + offset.current;
+    return Math.max(0, (Date.parse(timing.ends_at) - server) / 1000);
+  }, [timing?.ends_at]);
+
+  const [remaining, setRemaining] = useState(compute);
+
+  useEffect(() => {
+    offset.current = serverTime ? Date.parse(serverTime) - Date.now() : 0;
+    setRemaining(compute());
+  }, [serverTime, compute]);
+
+  useEffect(() => {
+    if (!timing?.ends_at) {
+      setRemaining(null);
+      return;
+    }
+    const t = setInterval(() => setRemaining(compute()), 1000);
+    return () => clearInterval(t);
+  }, [compute, timing?.ends_at]);
+
+  useEffect(() => {
+    if (remaining === null || remaining > 0 || timing?.locked) return;
+    if (fired.current === timing.ends_at) return;
+    fired.current = timing.ends_at;
+    expireRef.current?.();
+  }, [remaining, timing?.ends_at, timing?.locked]);
+
+  if (!timing?.ends_at) {
+    return <Badge tone="neutral" icon={<Clock size={12} />}>Section not started</Badge>;
+  }
+
+  const ended = timing.locked || remaining <= 0;
+  const low = !ended && remaining < 120;
+  return (
+    <div role={ended ? undefined : 'timer'} aria-label={ended ? 'Section time ended' : `Section time remaining ${clock(remaining ?? 0)}`}
+      className={cx('tnum flex items-center gap-2 rounded-md border px-2.5 py-1.5', ended ? 'border-red-200 bg-danger-soft text-danger-ink' : low ? 'border-amber-200 bg-warn-soft text-warn-ink' : 'border-line bg-white text-ink')}>
+      <Clock size={15} className={ended || low ? '' : 'text-muted'} aria-hidden />
+      <span className="leading-none">
+        <span className="block text-[10px] font-medium uppercase tracking-wide opacity-70">{ended ? 'Section ended' : 'Section left'}</span>
+        <span aria-hidden className="mt-0.5 block text-[15px] font-semibold leading-none">{ended ? '00:00' : clock(remaining ?? 0)}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
  * Shown instead of the question while the exam is not in fullscreen. The
  * question is not rendered at all, so it cannot be read off the screen.
  */
@@ -96,18 +154,6 @@ export function AutosaveChip({ state }) {
   return <Badge tone={tone} icon={icon}><span role="status">{label}</span></Badge>;
 }
 
-export function RecordingChip({ rec }) {
-  const { status, uploaded, retrying, error } = rec;
-  if (status === 'ready') {
-    return <Badge tone="ok" icon={<Video size={12} />}>Entire screen ready</Badge>;
-  }
-  if (status === 'recording') {
-    return <Badge tone={retrying ? 'warn' : 'ok'} icon={<Video size={12} />}>{retrying ? 'Recording — upload retrying' : uploaded ? `Recording · ${uploaded} uploaded` : 'Recording started'}</Badge>;
-  }
-  const label = { idle: 'Not recording', requesting: 'Waiting for permission', ready: 'Entire screen ready', denied: 'Recording denied', wrong_surface: 'Entire screen required', unsupported: 'Recording unsupported', error: 'Recording stopped' }[status];
-  return <Badge tone={status === 'requesting' ? 'blue' : 'warn'} icon={<VideoOff size={12} />}><span title={error || ''}>{label}</span></Badge>;
-}
-
 export function ProctorWarningBanner({ warning, onDismiss, onReturnFullscreen, fullscreen }) {
   if (!warning) return null;
   if (warning.locked) {
@@ -120,13 +166,13 @@ export function ProctorWarningBanner({ warning, onDismiss, onReturnFullscreen, f
   const flagged = Number(warning.count) >= Number(warning.max || 3);
   return (
     <Banner tone={flagged ? 'danger' : 'warn'} className="mx-auto w-full max-w-3xl"
-      title={flagged ? `Integrity warnings: ${warning.count} — flagged for review` : `Integrity warning ${warning.count} — ${warning.reason}`}
+      title={flagged ? `Integrity warnings: ${warning.count} — final warning` : `Integrity warning ${warning.count} — ${warning.reason}`}
       action={<div className="flex gap-2">
         {!fullscreen && <Button size="sm" variant="secondary" onClick={onReturnFullscreen}>Return to fullscreen</Button>}
         <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
       </div>}>
       {flagged
-        ? `${warning.reason} This attempt has been flagged for the exam team to review. You can keep working.`
+        ? `${warning.reason} This was the final warning; your exam has been submitted.`
         : 'This was recorded for the exam team. You can continue.'}
     </Banner>
   );
@@ -147,20 +193,24 @@ function NavigatorContent({ sections, current, answers, onGo, disabled }) {
     <div className="space-y-5">
       {sections.map((s) => {
         const count = s.questions.filter((q) => answers[q.id] !== undefined).length;
+        const locked = !!s.timing?.locked;
+        const state = s.timing?.state;
+        const stateLabel = state === 'completed' ? ' - finished' : state === 'expired' ? ' - time ended' : state === 'locked' ? ' - locked' : '';
         return (
           <section key={s.name}>
             <div className="mb-2.5 flex items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{s.name}</h3>
+              <h3 className={cx('text-xs font-semibold uppercase tracking-wide', locked ? 'text-danger' : 'text-muted')}>{s.name}{stateLabel}</h3>
               <span className="tnum text-[11px] text-muted">{count}/{s.questions.length}</span>
             </div>
             <div className="grid grid-cols-5 gap-2">
               {s.questions.map((q) => {
                 const ans = answers[q.id] !== undefined;
                 const cur = q.n === current;
+                const off = disabled || locked;
                 return (
-                  <button key={q.id} type="button" onClick={() => onGo(q.n)} disabled={disabled} aria-current={cur ? 'true' : undefined}
-                    aria-label={`Question ${q.n + 1}, ${ans ? 'answered' : 'unanswered'}${cur ? ', current' : ''}`}
-                    className={cx('tnum relative grid h-11 w-full place-items-center rounded-md border text-sm font-medium transition-colors', cur ? 'border-primary bg-primary text-white ring-2 ring-primary ring-offset-2' : ans ? 'border-ok/30 bg-ok-soft text-ok-ink hover:bg-ok-soft/70' : 'border-line bg-white text-body hover:border-primary/30 hover:bg-primary-soft', disabled && 'cursor-not-allowed opacity-60')}>
+                  <button key={q.id} type="button" onClick={() => onGo(q.n)} disabled={off} aria-current={cur ? 'true' : undefined}
+                    aria-label={`Question ${q.n + 1}, ${ans ? 'answered' : 'unanswered'}${cur ? ', current' : ''}${locked ? ', section time ended' : ''}`}
+                    className={cx('tnum relative grid h-11 w-full place-items-center rounded-md border text-sm font-medium transition-colors', cur ? 'border-primary bg-primary text-white ring-2 ring-primary ring-offset-2' : ans ? 'border-ok/30 bg-ok-soft text-ok-ink hover:bg-ok-soft/70' : 'border-line bg-white text-body hover:border-primary/30 hover:bg-primary-soft', off && 'cursor-not-allowed opacity-60')}>
                     {q.n + 1}
                     {ans && !cur && <Check size={11} className="absolute right-0.5 top-0.5" aria-hidden />}
                   </button>

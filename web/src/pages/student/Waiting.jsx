@@ -1,24 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowRight, CalendarDays, Check, Clock, Info, Layers, RefreshCw, ShieldCheck } from 'lucide-react';
-import { api } from '../../lib/api.js';
+import { motion } from 'motion/react';
+import { ArrowRight, CalendarDays, Check, Clock, Layers, RefreshCw, ShieldCheck, Timer } from 'lucide-react';
+import { api, auth } from '../../lib/api.js';
 import { useServerClock } from '../../hooks/useServerClock.js';
-import { fmtDateTime, fmtDuration } from '../../lib/format.js';
-import { Badge, Banner, Button, Card, Skeleton } from '../../components/ui.jsx';
-import { StudentHeader } from '../../components/StudentShell.jsx';
-import { StartCountdown } from '../../components/exam/parts.jsx';
+import { fmtDateTime, fmtDuration, splitHMS } from '../../lib/format.js';
 import { readDomainSelection, saveDomainSelection, clearDomainSelection } from '../../lib/domains.js';
+import { Badge, Banner, Button, Skeleton } from '../../components/ui.jsx';
+import { StudentHeader } from '../../components/StudentShell.jsx';
+import { Aurora, FlipUnit, GlowButton, Item, LiveDot, Stagger } from '../../components/motion.jsx';
+
+const Panel = ({ children }) => <div className="er-glass rounded-3xl p-6 sm:p-8">{children}</div>;
 
 /** S2 — waiting room. Start time comes from the server; the countdown is display only. */
 export default function Waiting() {
   const nav = useNavigate();
   const [data, setData] = useState(null);
-  const [state, setState] = useState('loading'); // loading | ok | missing | offline
+  const [state, setState] = useState('loading'); // loading | ok | missing | removed | offline
   const [error, setError] = useState('');
   const now = useServerClock(data?.server_time);
 
   // The technical domains the student picked. Empty until the picker is used.
-  const [picked, setPicked] = useState(() => readDomainSelection());
+  const [picked, setPicked] = useState([]);
 
   const load = useCallback(async () => {
     setError('');
@@ -28,7 +31,11 @@ export default function Waiting() {
       if (r.submitted) nav('/result', { replace: true });
     } catch (e) {
       if (e.status === 404) setState('missing');
-      else { setState((s) => (s === 'ok' ? 'ok' : 'offline')); setError(e.message); }
+      else if (e.status === 403 && e.data?.code === 'removed') {
+        auth.clear('student');
+        setState('removed');
+        setError(e.message);
+      } else { setState((s) => (s === 'ok' ? 'ok' : 'offline')); setError(e.message); }
     }
   }, [nav]);
   useEffect(() => { load(); }, [load]);
@@ -36,6 +43,15 @@ export default function Waiting() {
   const ev = data?.event;
   const remaining = ev ? (Date.parse(ev.starts_at) - now) / 1000 : null;
   const started = ev && remaining <= 0;
+  const paperTime = ev?.paper_minutes
+    ? ev.min_paper_minutes && ev.min_paper_minutes !== ev.paper_minutes
+      ? `${fmtDuration(ev.min_paper_minutes)} - ${fmtDuration(ev.paper_minutes)}`
+      : fmtDuration(ev.paper_minutes)
+    : 'Set per paper';
+
+  useEffect(() => {
+    setPicked(ev?.id ? readDomainSelection(ev.id) : []);
+  }, [ev?.id]);
 
   // Re-confirm with the server the moment our display clock reaches the start time.
   const [confirmed, setConfirmed] = useState(false);
@@ -66,8 +82,8 @@ export default function Waiting() {
   // next exam.
   useEffect(() => {
     if (state !== 'ok' || !domains) return;
-    if (!domains.enabled || (domains.selected || []).length) clearDomainSelection();
-  }, [state, domains]);
+    if (!domains.enabled || (domains.selected || []).length) clearDomainSelection(ev?.id);
+  }, [state, domains, ev?.id]);
 
   const planned = (() => {
     const common = (domains?.common || []).reduce((sum, c) => sum + Number(c.count || 0), 0);
@@ -79,90 +95,84 @@ export default function Waiting() {
   })();
 
   const begin = () => {
-    if (domainMode === 'select' && !frozen) saveDomainSelection(picked);
+    if (domainMode === 'select' && !frozen) saveDomainSelection(ev?.id, picked);
     nav('/exam');
   };
 
+  const { d, h, m, s: sec } = splitHMS(remaining ?? 0);
+  const low = !started && remaining != null && remaining < 300;
+
   return (
-    <div className="min-h-screen">
+    <div className="relative isolate min-h-screen overflow-hidden">
+      <Aurora tone={low ? 'red' : 'blue'} />
       <StudentHeader />
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
-        {state === 'loading' && (
-          <Card className="space-y-5 p-6 sm:p-8" aria-busy="true">
-            <div className="space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-8 w-2/3" /></div>
-            <Skeleton className="h-36 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </Card>
-        )}
+      <main className="mx-auto max-w-2xl px-4 py-10">
+        {state === 'loading' && <Panel><div aria-busy="true" className="space-y-4"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-20" /><Skeleton className="h-24" /></div></Panel>}
 
         {state === 'missing' && (
-          <Card className="mx-auto max-w-xl p-6 sm:p-8">
-            <Banner tone="error" title="We couldn't find an active exam for this sign-in." action={<Button size="sm" variant="secondary" onClick={() => nav('/')}>Back to sign in</Button>}>Check that you used the invited email address.</Banner>
-          </Card>
+          <Panel><Banner tone="error" title="We couldn't find an active exam for this sign-in." action={<Button size="sm" variant="secondary" onClick={() => { nav('/'); }}>Back to sign in</Button>}>Check that you used the invited email address.</Banner></Panel>
+        )}
+
+        {state === 'removed' && (
+          <Panel><Banner tone="error" title="Your access to this exam was removed." action={<Button size="sm" variant="secondary" onClick={() => nav('/')}>Back to sign in</Button>}>{error || 'Contact the exam team if you think this is a mistake.'}</Banner></Panel>
         )}
 
         {state === 'offline' && (
-          <Card className="mx-auto max-w-xl p-6 sm:p-8">
-            <Banner tone="warn" title="Exam status is temporarily unavailable." action={<Button size="sm" variant="secondary" onClick={load}><RefreshCw size={14} aria-hidden />Retry</Button>}>{error} We won't show a countdown until the server confirms the start time.</Banner>
-          </Card>
+          <Panel><Banner tone="warn" title="Exam status is temporarily unavailable." action={<Button size="sm" variant="secondary" onClick={load}><RefreshCw size={14} />Retry</Button>}>{error} We won't show a countdown until the server confirms the start time.</Banner></Panel>
         )}
 
         {state === 'ok' && ev && (
-          <div>
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Your next exam</p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{ev.name}</h1>
-              </div>
-              {started ? <Badge tone="ok">Ready to begin</Badge> : <Badge tone="blue">Scheduled</Badge>}
-            </div>
+          <Stagger>
+            <Item className="mb-5 text-center">
+              <span className="er-glass inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium">
+                {started ? <><LiveDot tone="ok" />Ready</> : <><LiveDot tone="blue" />Waiting for exam</>}
+              </span>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{ev.name}</h1>
+            </Item>
 
-            <Card className="overflow-hidden">
-              <div className="relative border-b border-line bg-gradient-to-br from-ice via-primary-soft/70 to-white p-6 sm:p-8">
-                <div className="pointer-events-none absolute -right-14 -top-16 h-52 w-52 rounded-full bg-white/50" aria-hidden />
-                <div className="pointer-events-none absolute -bottom-24 right-24 h-40 w-40 rounded-full bg-primary/5" aria-hidden />
-                <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
-                  <div>
-                    <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">{started ? 'Your exam is ready.' : 'Get ready for your exam.'}</h2>
-                    <p className="mt-2 max-w-lg text-sm leading-6 text-muted">Check the schedule, review the instructions, and make sure you are ready before you begin.</p>
-                    <div className="mt-5 flex flex-wrap gap-2.5">
-                      <span className="inline-flex items-center gap-2 rounded-md border border-white/80 bg-white/70 px-3 py-2 text-sm text-body"><CalendarDays size={16} className="text-primary" aria-hidden /><span className="text-xs text-muted">Starts</span><span className="tnum font-medium">{fmtDateTime(ev.starts_at)}</span></span>
-                      <span className="inline-flex items-center gap-2 rounded-md border border-white/80 bg-white/70 px-3 py-2 text-sm text-body"><Clock size={16} className="text-primary" aria-hidden /><span className="text-xs text-muted">Duration</span><span className="tnum font-medium">{fmtDuration(ev.duration_min)}</span></span>
-                    </div>
-                  </div>
-                  <div className="relative mx-auto grid h-28 w-28 place-items-center rounded-2xl border border-white/80 bg-white/75 shadow-card" aria-hidden>
-                    <CalendarDays size={44} className="text-primary/80" strokeWidth={1.4} />
-                    <span className="absolute -bottom-3 -right-3 grid h-11 w-11 place-items-center rounded-xl bg-primary text-white shadow-[0_8px_20px_-8px_rgba(37,99,235,0.8)]"><ShieldCheck size={20} /></span>
-                  </div>
+            <Item>
+              <Panel>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[[CalendarDays, 'Start time', fmtDateTime(ev.starts_at)], [Clock, 'Exam window', fmtDuration(ev.duration_min)], [Timer, 'Paper time', paperTime]].map(([Icon, k, v]) => (
+                    <motion.div key={k} whileHover={{ y: -2 }} className="flex items-center gap-3 rounded-2xl border border-line/70 bg-white/70 px-4 py-3">
+                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary"><Icon size={18} aria-hidden /></span>
+                      <div><p className="text-xs text-muted">{k}</p><p className="tnum text-sm font-semibold">{v}</p></div>
+                    </motion.div>
+                  ))}
                 </div>
-              </div>
 
-              <div className="p-6 sm:p-8">
-                <div className="rounded-xl border border-line bg-canvas/60 px-4 py-8 text-center sm:py-10">
+                <div className="mt-6 text-center">
                   {started ? (
-                    <div className="mx-auto max-w-md space-y-4">
-                      <p className="text-lg font-semibold text-ink">You can begin now.</p>
-                      <p className="text-sm text-muted">When you are ready, continue to the exam setup. Your time starts after the exam is loaded.</p>
-                      <Button size="lg" onClick={begin} disabled={!ready}>Begin Exam<ArrowRight size={16} aria-hidden /></Button>
-                    </div>
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5 py-6">
+                      <p className="text-2xl font-semibold">Your exam is ready.</p>
+                      <motion.div animate={{ boxShadow: ['0 0 0 0 rgb(37 99 235 / .35)', '0 0 0 18px rgb(37 99 235 / 0)'] }} transition={{ duration: 1.8, repeat: Infinity }} className="inline-block rounded-xl">
+                        <GlowButton onClick={begin} disabled={!ready} className="h-12 px-8 text-base">Begin Exam<ArrowRight size={16} aria-hidden /></GlowButton>
+                      </motion.div>
+                      {!ready && <p className="text-sm text-warn-ink">Choose your technical domain below to continue.</p>}
+                    </motion.div>
                   ) : (
-                    <div className="space-y-5">
+                    <div className="space-y-6 py-2">
                       <p className="text-sm text-muted">The exam has not started yet. Exam will start in</p>
-                      <StartCountdown remainingSec={remaining} />
-                      {remaining < 300 && <p className="inline-flex items-center gap-1.5 text-sm font-medium text-warn-ink"><Info size={14} aria-hidden />Less than 5 minutes to go.</p>}
+                      <div role="timer" aria-label={`Exam starts in ${d ? `${d} days ` : ''}${h} hours ${m} minutes ${sec} seconds`} className="flex items-start justify-center gap-2 sm:gap-3">
+                        {d > 0 && <><FlipUnit value={d} label="Days" danger={low} /><span className="pt-8 text-3xl font-light text-slate-300" aria-hidden>:</span></>}
+                        <FlipUnit value={h} label="Hours" danger={low} /><span className="pt-8 text-3xl font-light text-slate-300" aria-hidden>:</span>
+                        <FlipUnit value={m} label="Minutes" danger={low} /><span className="pt-8 text-3xl font-light text-slate-300" aria-hidden>:</span>
+                        <FlipUnit value={sec} label="Seconds" danger={low} />
+                      </div>
+                      {low && <p className="text-sm font-medium text-danger">Less than 5 minutes to go.</p>}
                     </div>
                   )}
                 </div>
 
-                {/* The domain picker. It sits above the exam, in the waiting room,
+                {/* The domain picker sits above the exam, in the waiting room,
                     so the choice is made before the timer starts. */}
                 {domainMode === 'select' && (
-                  <section className="mt-5 rounded-xl border border-line bg-white p-5 sm:p-6" aria-labelledby="domain-picker-title">
+                  <section className="mt-6 rounded-2xl border border-line/70 bg-white/70 p-5" aria-labelledby="domain-picker-title">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h3 id="domain-picker-title" className="flex items-center gap-2 text-base font-semibold text-ink">
+                        <h2 id="domain-picker-title" className="flex items-center gap-2 text-base font-semibold text-ink">
                           <Layers size={17} className="text-primary" aria-hidden />Choose your technical domain
-                        </h3>
+                        </h2>
                         <p className="mt-1 text-sm text-muted">
                           {frozen
                             ? 'Your domains are locked in. You can resume the exam below.'
@@ -175,7 +185,7 @@ export default function Waiting() {
                     </div>
 
                     {!!domains.common?.length && (
-                      <div className="mt-4 rounded-lg border border-line bg-canvas/70 px-4 py-3">
+                      <div className="mt-4 rounded-xl border border-line/70 bg-canvas/70 px-4 py-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted">Every exam includes</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {domains.common.map((c) => (
@@ -246,23 +256,18 @@ export default function Waiting() {
                   </section>
                 )}
 
-                {!started && <p className="mt-3 text-center text-xs text-muted">Please stay on this page. You can begin when the exam is ready.</p>}
+                <div className="mt-6 flex gap-3 rounded-2xl border border-blue-100 bg-primary-soft/70 px-4 py-3 text-sm text-blue-900">
+                  <ShieldCheck size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+                  <p className="whitespace-pre-wrap">{ev.instructions ? `${ev.instructions} ` : ''}Please stay on this page. You can begin when the exam is ready.</p>
+                </div>
                 <p className="mt-3 text-center text-xs text-muted">
                   This exam may require Safe Exam Browser.{' '}
                   <button type="button" onClick={() => nav('/seb')} className="font-medium text-primary hover:underline">Open the SEB setup page</button>
                 </p>
-
-                {ev.instructions && (
-                  <div className="mt-5 rounded-xl border border-line bg-primary-soft/50 p-4">
-                    <p className="flex items-center gap-2 text-sm font-medium text-ink"><Info size={16} className="text-primary" aria-hidden />Instructions from your exam team</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-body">{ev.instructions}</p>
-                  </div>
-                )}
-
-                {error && <Banner tone="warn" className="mt-4" action={<Button size="sm" variant="secondary" onClick={load}>Retry</Button>}>Could not refresh exam status. {error}</Banner>}
-              </div>
-            </Card>
-          </div>
+                {error && <Banner tone="warn" className="mt-3" action={<Button size="sm" variant="secondary" onClick={load}>Retry</Button>}>Could not refresh exam status. {error}</Banner>}
+              </Panel>
+            </Item>
+          </Stagger>
         )}
       </main>
     </div>

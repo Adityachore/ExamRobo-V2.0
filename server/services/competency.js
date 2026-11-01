@@ -10,6 +10,7 @@
 export const CATEGORIES = [
   'Aptitude',
   'Logic',
+  'Grammar',
   'Frontend',
   'Backend',
   'Full Stack',
@@ -17,6 +18,7 @@ export const CATEGORIES = [
   'Cyber Security',
   'Digital Marketing',
   'On-Field Marketing',
+  'Business & Data Analyst',
   'WordPress',
   'AI',
   'AI and ML',

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, LayoutGrid, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calculator as CalculatorIcon, LayoutGrid, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { api, wsTicket, wsUrl } from '../../lib/api.js';
 import { useIntegrity } from '../../hooks/useIntegrity.js';
 import { KIND_LABELS, detectFullscreen } from '../../lib/integrity.js';
 import { ConnectionBadge } from '../ConnectionBadge.jsx';
 import { Badge, Banner, Button, Logo, Modal, Spinner, cx } from '../ui.jsx';
-// RecordingChip is disabled with screen recording for now.
-import { AnswerOption, AutosaveChip, ExamCountdown, FullscreenBlocker, ProctorWarningBanner, QuestionNavigator, QuestionNavigatorPanel, SubmitDialog } from './parts.jsx';
+import { AnswerOption, AutosaveChip, ExamCountdown, FullscreenBlocker, ProctorWarningBanner, QuestionNavigator, QuestionNavigatorPanel, SectionCountdown, SubmitDialog } from './parts.jsx';
+import Calculator from './Calculator.jsx';
 
 const queueKey = (paperId) => (paperId ? `examrobo:answers:${paperId}` : null);
 
@@ -49,6 +49,33 @@ function clearQueue(paperId) {
  */
 export default function Runner({ initial, onDone, onLocked, eventName, sebMode = false }) {
   const sections = initial.paper.sections;
+  const [sectionTimings, setSectionTimings] = useState(() => {
+    const map = {};
+    for (const section of initial.paper.sections || []) {
+      if (section.timing?.category) map[section.timing.category] = section.timing;
+    }
+    for (const timing of initial.sections || []) {
+      if (timing?.category) map[timing.category] = timing;
+    }
+    return map;
+  });
+
+  const mergeSectionTimings = useCallback((timings) => {
+    const list = Array.isArray(timings) ? timings : [timings];
+    if (!list.some((timing) => timing?.category)) return;
+    setSectionTimings((current) => {
+      const next = { ...current };
+      for (const timing of list) {
+        if (timing?.category) next[timing.category] = timing;
+      }
+      return next;
+    });
+  }, []);
+
+  const sectionsWithTiming = useMemo(
+    () => sections.map((section) => ({ ...section, timing: sectionTimings[section.name] || section.timing || null })),
+    [sections, sectionTimings],
+  );
   const flat = useMemo(() => sections.flatMap((s) => s.questions.map((q) => ({ ...q, section: s.name }))), [sections]);
   const total = flat.length;
 
@@ -77,9 +104,13 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
   const [wsUp, setWsUp] = useState(true);
   const [finished, setFinished] = useState(null); // {msg}
   const [navOpen, setNavOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [finishOpen, setFinishOpen] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState('');
   const [proctorMsg, setProctorMsg] = useState(null);
   const [fullscreen, setFullscreen] = useState(() => sebMode || detectFullscreen());
   const [resultError, setResultError] = useState('');
@@ -101,6 +132,18 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         onDone();
         return;
       } catch (e) {
+        if (e.status === 409 && e.data?.code === 'results_not_published') {
+          onDone();
+          return;
+        }
+        if (e.status === 403 && ['results_unavailable', 'results_expired', 'removed'].includes(e.data?.code)) {
+          onDone();
+          return;
+        }
+        if (e.status === 404) {
+          onDone();
+          return;
+        }
         if (e.status === 409 && e.data?.code === 'active') {
           tries += 1;
           if (tries > 6) { // server says still active -> our clock was wrong; resume
@@ -145,6 +188,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
   // integrity violation the student goes to the lock screen, not the result.
   const handleConflict = useCallback((e) => {
     if (e?.status !== 409) return false;
+    if (String(e.data?.code || '').startsWith('section_')) return true;
     if (e.data?.locked) {
       lockOut({
         msg: e.data.lock_reason ? `${e.data.lock_reason}.` : 'Your exam was ended because of an integrity violation.',
@@ -155,6 +199,62 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
     lock('Your exam has been submitted.');
     return true;
   }, [lock, lockOut]);
+
+  const markSectionExpired = useCallback((category, state = 'expired') => {
+    if (!category) return;
+    setSectionTimings((current) => {
+      if (current[category]?.locked) return current;
+      return {
+        ...current,
+        [category]: {
+          ...(current[category] || { category }),
+          category,
+          state,
+          locked: true,
+          remaining_sec: 0,
+        },
+      };
+    });
+  }, []);
+
+  const handleSectionExpired = useCallback((e) => {
+    const code = e?.data?.code;
+    if (!['section_expired', 'section_completed', 'section_locked', 'section_not_active'].includes(code)) return false;
+    markSectionExpired(e.data?.section, code === 'section_completed' ? 'completed' : 'expired');
+    return true;
+  }, [markSectionExpired]);
+
+  // Reconcile with the server after a section ends or is finished. The server
+  // advances the section clock, so this only mirrors the authoritative state.
+  const syncSections = useCallback(async () => {
+    try {
+      const r = await api('/exam/snapshot', {
+        method: 'POST',
+        role: 'student',
+        body: { current_index: indexRef.current, fullscreen: fullscreenRef.current },
+      });
+      setEndsAt(r.ends_at);
+      setServerTime(r.server_time);
+      setWarnings(r.warnings);
+      setOffline(false);
+      if (r.sections) mergeSectionTimings(r.sections);
+      if (r.submitted) lock('Your exam has been submitted.');
+      return r;
+    } catch (e) {
+      if (!handleConflict(e) && e.status === 0) setOffline(true);
+      return null;
+    }
+  }, [handleConflict, lock, mergeSectionTimings]);
+
+  const handleSectionTimeout = useCallback(async (category) => {
+    markSectionExpired(category);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const r = await syncSections();
+      if (!r || r.submitted) return;
+      if (r.active_section && r.active_section !== category) return;
+      await new Promise((resolve) => setTimeout(resolve, 900));
+    }
+  }, [markSectionExpired, syncSections]);
 
   const persistQueue = useCallback(() => writeQueue(paperId, queued.current), [paperId]);
 
@@ -172,6 +272,12 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         setSaveState((s) => ({ ...s, [qid]: 'saved' }));
         setOffline(false);
       } catch (e) {
+        if (handleSectionExpired(e)) {
+          queued.current.delete(qid);
+          persistQueue();
+          setSaveState((s) => ({ ...s, [qid]: 'failed' }));
+          continue;
+        }
         if (handleConflict(e) || e.status === 401) return;
         if (e.status === 400) {
           queued.current.delete(qid);
@@ -182,7 +288,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         return;
       }
     }
-  }, [handleConflict, persistQueue]);
+  }, [handleConflict, handleSectionExpired, persistQueue]);
 
   useEffect(() => {
     if (queued.current.size) flushQueue();
@@ -207,15 +313,21 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
     try {
       const r = await api(`/exam/question/${n}`, { role: 'student' });
       if (seq !== questionSeq.current) return;
+      if (r.section) mergeSectionTimings(r.section);
+      if (r.server_time) setServerTime(r.server_time);
       questionCache.current.set(n, r.question);
       setQuestion(r.question);
       setQuestionState({ loading: false, error: '' });
     } catch (e) {
       if (seq !== questionSeq.current) return;
+      if (handleSectionExpired(e)) {
+        setQuestionState({ loading: false, error: e.message || 'The time for this section has ended.' });
+        return;
+      }
       if (handleConflict(e)) return;
       setQuestionState({ loading: false, error: e.message || 'Could not load this question.' });
     }
-  }, [handleConflict]);
+  }, [handleConflict, handleSectionExpired, mergeSectionTimings]);
 
   useEffect(() => {
     loadQuestion(index);
@@ -240,6 +352,12 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         setOffline(false);
         return;
       } catch (e) {
+        if (handleSectionExpired(e)) {
+          queued.current.delete(qid);
+          persistQueue();
+          setSaveState((s) => ({ ...s, [qid]: 'failed' }));
+          return;
+        }
         if (handleConflict(e)) return;
         if (e.status === 401) return;
         if (e.status === 400) {
@@ -254,10 +372,10 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         wait = Math.min(wait * 2, 8000);
       }
     }
-  }, [handleConflict, persistQueue]);
+  }, [handleConflict, handleSectionExpired, persistQueue]);
 
   const choose = (q, choice) => {
-    if (finishedRef.current) return;
+    if (finishedRef.current || sectionTimings[q.section]?.locked) return;
     setAnswers((a) => ({ ...a, [q.id]: choice }));
     save(q.id, choice, indexRef.current);
   };
@@ -271,6 +389,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
       try {
         const r = await api('/exam/snapshot', { method: 'POST', role: 'student', body: { current_index: indexRef.current, fullscreen: fullscreenRef.current } });
         setEndsAt(r.ends_at); setServerTime(r.server_time); setWarnings(r.warnings); setOffline(false);
+        if (r.sections) mergeSectionTimings(r.sections);
         // The server can end the exam from its own side (the fullscreen
         // backstop, the warning limit). The heartbeat is how the client hears
         // about it when the websocket is down.
@@ -281,7 +400,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
       }
     }, 15000);
     return () => clearInterval(t);
-  }, [handleConflict, lock]);
+  }, [handleConflict, lock, mergeSectionTimings]);
 
   /* ---- persist question position shortly after navigation ---- */
   useEffect(() => {
@@ -341,6 +460,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
           try {
             const r = await api('/exam/snapshot', { method: 'POST', role: 'student', body: { current_index: indexRef.current, fullscreen: fullscreenRef.current } });
             setEndsAt(r.ends_at); setServerTime(r.server_time); setWarnings(r.warnings);
+            if (r.sections) mergeSectionTimings(r.sections);
           } catch (e) { handleConflict(e); }
         }
       };
@@ -358,12 +478,30 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
           }
           lock(m.reason === 'force_submit' ? 'Your exam has been submitted by the exam team.' : 'Your exam has been submitted.');
         }
+        if (m.type === 'removed') {
+          lock('Your access to this exam was removed by the exam team.');
+          return;
+        }
+        if (m.type === 'restarted') {
+          // A restarted paper has new questions and a fresh position. Reloading
+          // is the only safe way to rebuild the runner around it.
+          window.location.reload();
+          return;
+        }
+        if (m.type === 'resumed') {
+          api('/exam/snapshot', { method: 'POST', role: 'student', body: { current_index: indexRef.current, fullscreen: fullscreenRef.current } })
+            .then((r) => {
+              setEndsAt(r.ends_at); setServerTime(r.server_time); setWarnings(r.warnings);
+              if (r.sections) mergeSectionTimings(r.sections);
+            })
+            .catch((e) => handleConflict(e));
+        }
       };
       ws.onclose = () => { if (closed) return; wasDown = true; setWsUp(false); retry = setTimeout(open, wait); wait = Math.min(wait * 2, 10000); };
     };
     open();
     return () => { closed = true; clearTimeout(retry); ws?.close(); };
-  }, [handleConflict, lock, lockOut]);
+  }, [handleConflict, lock, lockOut, mergeSectionTimings]);
 
   /* ---- expiry: the server decides; the anchored clock only asks for the result ---- */
   const onExpire = useCallback(() => {
@@ -400,13 +538,86 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
   // all, so it cannot be read off the screen while the warning is counted.
   const blocked = !isFullscreen && !locked;
   const navigationDisabled = locked || blocked;
-  const sectionStats = sections.map((s) => ({
-    name: s.name,
-    total: s.questions.length,
-    answered: s.questions.filter((item) => answers[item.id] !== undefined).length,
-    first: s.questions[0]?.n ?? 0,
-    active: s.name === qMeta?.section,
-  }));
+  const currentTiming = qMeta ? sectionTimings[qMeta.section] || null : null;
+  const currentLocked = !!currentTiming?.locked;
+
+  // The server can unlock the next section while this tab was on the previous
+  // one (a section timer ended, or another tab finished it). Move to the first
+  // question of the section that is now active.
+  useEffect(() => {
+    if (finishedRef.current) return;
+    const active = Object.values(sectionTimings).find((timing) => timing?.state === 'active');
+    if (!active) return;
+    if (flat[index]?.section === active.category) return;
+    const target = sections.find((section) => section.name === active.category)?.questions[0]?.n;
+    if (Number.isInteger(target)) setIndex(target);
+  }, [flat, index, sections, sectionTimings]);
+
+  const finishCurrentSection = async () => {
+    if (!qMeta || finishing) return;
+    setFinishing(true);
+    setFinishError('');
+    try {
+      await flushQueue();
+      if (queued.current.size) {
+        setFinishError('Some answers are still not saved. Stay online and try again.');
+        return;
+      }
+      const r = await api('/exam/section/finish', {
+        method: 'POST',
+        role: 'student',
+        body: { category: qMeta.section },
+      });
+      if (r.submitted) {
+        setFinishOpen(false);
+        lock('Your exam has been submitted.');
+        return;
+      }
+      if (r.sections) mergeSectionTimings(r.sections);
+      setFinishOpen(false);
+      const next = sections.find((section) => section.name === r.active_section);
+      const nextIndex = next?.questions[0]?.n;
+      if (Number.isInteger(nextIndex)) {
+        questionCache.current.clear();
+        setIndex(nextIndex);
+      }
+    } catch (e) {
+      if (handleSectionExpired(e)) {
+        setFinishOpen(false);
+        await syncSections();
+      } else if (!handleConflict(e)) {
+        setFinishError(e.status === 0 ? 'Could not reach the server. Stay online and try again.' : e.message);
+      }
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  const goTo = useCallback((n) => {
+    if (navigationDisabled) return;
+    if (!Number.isInteger(n) || n < 0 || n >= total) return;
+    const target = sectionTimings[flat[n]?.section];
+    if (target && target.state !== 'active') {
+      setNavOpen(true);
+      return;
+    }
+    setIndex(n);
+  }, [flat, navigationDisabled, sectionTimings, total]);
+
+  const sectionStats = sections.map((s) => {
+    const timing = sectionTimings[s.name] || s.timing || null;
+    return {
+      name: s.name,
+      total: s.questions.length,
+      answered: s.questions.filter((item) => answers[item.id] !== undefined).length,
+      first: s.questions[0]?.n ?? 0,
+      active: s.name === qMeta?.section,
+      timing,
+      state: timing?.state || null,
+      locked: !!timing?.locked,
+    };
+  });
+  const currentSectionStat = sectionStats.find((section) => section.name === qMeta?.section) || null;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -424,7 +635,9 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
                 <ConnectionBadge />
                 <Badge tone={warnings >= maxWarnings ? 'danger' : warnings ? 'warn' : 'neutral'}><span className="tnum">Warnings {warnings}</span></Badge>
                 <AutosaveChip state={aggregate} />
-                {/* Screen recording is disabled for now. <RecordingChip rec={recorder} /> */}
+                <Button variant="secondary" size="sm" onClick={() => setCalcOpen((v) => !v)} aria-pressed={calcOpen} aria-label="Toggle calculator">
+                  <CalculatorIcon size={15} aria-hidden />
+                </Button>
               </div>
               <ExamCountdown endsAt={endsAt} serverTime={serverTime} onExpire={onExpire} />
             </div>
@@ -434,7 +647,9 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
             <ConnectionBadge />
             <Badge tone={warnings >= maxWarnings ? 'danger' : warnings ? 'warn' : 'neutral'}><span className="tnum">Warnings {warnings}</span></Badge>
             <AutosaveChip state={aggregate} />
-            {/* Screen recording is disabled for now. <span className="hidden sm:inline-flex"><RecordingChip rec={recorder} /></span> */}
+            <Button variant="secondary" size="sm" onClick={() => setCalcOpen((v) => !v)} aria-pressed={calcOpen} aria-label="Toggle calculator">
+              <CalculatorIcon size={15} aria-hidden />
+            </Button>
           </div>
         </div>
       </header>
@@ -454,18 +669,23 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
             <div className="sticky top-24 rounded-xl border border-line bg-white p-3 shadow-card">
               <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Sections</p>
               <nav className="space-y-1" aria-label="Exam sections">
-                {sectionStats.map((s) => (
-                  <button key={s.name} type="button" onClick={() => setIndex(s.first)} disabled={navigationDisabled} aria-current={s.active ? 'true' : undefined}
-                    className={cx('w-full rounded-lg border px-2.5 py-2.5 text-left transition-colors', s.active ? 'border-primary/20 bg-primary-soft' : 'border-transparent hover:bg-canvas', navigationDisabled && 'cursor-not-allowed opacity-60')}>
-                    <span className="flex items-center justify-between gap-2">
-                      <span className={cx('truncate text-sm font-medium', s.active ? 'text-primary' : 'text-body')}>{s.name}</span>
-                      <span className="tnum shrink-0 text-[11px] text-muted">{s.answered}/{s.total}</span>
-                    </span>
-                    <span className="mt-2 block h-1 overflow-hidden rounded-full bg-line">
-                      <span className={cx('block h-full rounded-full', s.active ? 'bg-primary' : 'bg-slate-300')} style={{ width: `${s.total ? (s.answered / s.total) * 100 : 0}%` }} />
-                    </span>
-                  </button>
-                ))}
+                {sectionStats.map((s) => {
+                  const off = navigationDisabled || (s.state ? s.state !== 'active' : s.locked);
+                  const label = s.state === 'completed' ? 'Finished' : s.state === 'expired' ? 'Time ended' : s.state === 'locked' ? 'Locked' : '';
+                  return (
+                    <button key={s.name} type="button" onClick={() => goTo(s.first)} disabled={off} aria-current={s.active ? 'true' : undefined}
+                      className={cx('w-full rounded-lg border px-2.5 py-2.5 text-left transition-colors', s.active ? 'border-primary/20 bg-primary-soft' : 'border-transparent hover:bg-canvas', off && 'cursor-not-allowed opacity-60')}>
+                      <span className="flex items-center justify-between gap-2">
+                        <span className={cx('truncate text-sm font-medium', s.state === 'expired' ? 'text-danger' : s.active ? 'text-primary' : 'text-body')}>{s.name}</span>
+                        <span className="tnum shrink-0 text-[11px] text-muted">{s.answered}/{s.total}</span>
+                      </span>
+                      <span className="mt-2 block h-1 overflow-hidden rounded-full bg-line">
+                        <span className={cx('block h-full rounded-full', s.active ? 'bg-primary' : s.state === 'completed' ? 'bg-ok' : 'bg-slate-300')} style={{ width: `${s.total ? (s.answered / s.total) * 100 : 0}%` }} />
+                      </span>
+                      {label && <span className={cx('mt-1.5 block text-[10px] font-medium uppercase tracking-wide', s.state === 'expired' ? 'text-danger' : 'text-muted')}>{label}</span>}
+                    </button>
+                  );
+                })}
               </nav>
             </div>
           </aside>
@@ -482,7 +702,8 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
                 <TriangleAlert size={22} className="mx-auto text-warn-ink" aria-hidden />
                 <p className="mt-3 text-sm font-medium text-ink">Could not load this question.</p>
                 <p className="mt-1 text-sm text-muted">{questionState.error}</p>
-                <Button className="mt-4" variant="secondary" onClick={() => loadQuestion(index)}>Try again</Button>
+                {!currentLocked && <Button className="mt-4" variant="secondary" onClick={() => loadQuestion(index)}>Try again</Button>}
+                {currentLocked && <Button className="mt-4" onClick={() => setNavOpen(true)}>Open navigator</Button>}
               </div>
             ) : question?.n === index ? (
               <article className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
@@ -491,13 +712,27 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Question {index + 1} of {total}</p>
                     <p className="mt-0.5 text-xs text-muted">{question.section}</p>
                   </div>
-                  <Badge tone={answers[question.id] !== undefined ? 'ok' : 'neutral'}>{answers[question.id] !== undefined ? 'Answered' : 'Not answered'}</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SectionCountdown timing={currentTiming} serverTime={serverTime} onExpire={() => handleSectionTimeout(question.section)} />
+                    {currentTiming?.state === 'active' && (
+                      <Button size="sm" variant="secondary" onClick={() => { setFinishError(''); setFinishOpen(true); }}>Finish section</Button>
+                    )}
+                    <Badge tone={answers[question.id] !== undefined ? 'ok' : 'neutral'}>{answers[question.id] !== undefined ? 'Answered' : 'Not answered'}</Badge>
+                  </div>
                 </div>
+                {currentLocked && (
+                  <div className="border-b border-line px-5 py-3 sm:px-8">
+                    <Banner tone="warn" title={currentTiming?.state === 'completed' ? `${question.section} is finished` : `Time for ${question.section} has ended`}
+                      action={<Button size="sm" variant="secondary" onClick={() => setNavOpen(true)}>Open navigator</Button>}>
+                      Answers in this section can no longer be changed. Move to the active section to continue.
+                    </Banner>
+                  </div>
+                )}
                 <div className="px-5 py-6 sm:px-8 sm:py-8">
                   <h1 className="text-[17px] font-medium leading-8 text-ink sm:text-[18px]" id="q-stem">{question.stem}</h1>
                   <div role="radiogroup" aria-labelledby="q-stem" className="mt-6 space-y-3">
                     {question.options.map((opt, i) => (
-                      <AnswerOption key={`${question.id}-${i}`} name={`q-${question.id}`} letter={'ABCD'[i]} text={opt} checked={answers[question.id] === i} disabled={locked} onSelect={() => choose(question, i)} />
+                      <AnswerOption key={`${question.id}-${i}`} name={`q-${question.id}`} letter={'ABCD'[i]} text={opt} checked={answers[question.id] === i} disabled={locked || currentLocked} onSelect={() => choose(question, i)} />
                     ))}
                   </div>
                   {saveState[question.id] === 'failed' && <p className="mt-4 flex items-start gap-2 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink" role="status"><TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden />This answer is not saved yet. We keep retrying; it stays selected here.</p>}
@@ -506,17 +741,17 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
             ) : null}
           </div>
 
-          <QuestionNavigatorPanel className="hidden xl:sticky xl:top-24 xl:block" sections={sections} current={index} answers={answers} onGo={setIndex} disabled={navigationDisabled} />
+          <QuestionNavigatorPanel className="hidden xl:sticky xl:top-24 xl:block" sections={sectionsWithTiming} current={index} answers={answers} onGo={goTo} disabled={navigationDisabled} />
         </div>
       </main>
 
       <footer className="sticky bottom-0 z-20 border-t border-line bg-white/95 backdrop-blur">
         <div className="mx-auto w-full max-w-[1440px] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Previous question">
+            <Button variant="secondary" onClick={() => goTo(index - 1)} disabled={index === 0 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Previous question">
               <ArrowLeft size={16} aria-hidden /><span className="hidden sm:inline">Previous</span>
             </Button>
-            <Button variant="secondary" onClick={() => setIndex((i) => Math.min(total - 1, i + 1))} disabled={index === total - 1 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Next question">
+            <Button variant="secondary" onClick={() => goTo(index + 1)} disabled={index === total - 1 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Next question">
               <span className="hidden sm:inline">Next</span><ArrowRight size={16} aria-hidden />
             </Button>
             <Button variant="secondary" onClick={() => setNavOpen(true)} disabled={navigationDisabled} className="tnum shrink-0 px-2.5 xl:hidden sm:px-4" aria-label={`Open question navigator, ${answered} of ${total} answered`}>
@@ -530,7 +765,20 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         </div>
       </footer>
 
-      <QuestionNavigator open={navOpen} onClose={() => setNavOpen(false)} sections={sections} current={index} answers={answers} onGo={setIndex} disabled={navigationDisabled} />
+      <div className="fixed bottom-20 right-4 z-40 w-64 max-w-[calc(100vw-2rem)]">
+        <Calculator open={calcOpen} onClose={() => setCalcOpen(false)} />
+      </div>
+
+      <QuestionNavigator open={navOpen} onClose={() => setNavOpen(false)} sections={sectionsWithTiming} current={index} answers={answers} onGo={goTo} disabled={navigationDisabled} />
+      <Modal open={finishOpen} onClose={finishing ? undefined : () => setFinishOpen(false)} dismissible={!finishing}
+        title={`Finish ${qMeta?.section || 'this section'}?`} size="sm"
+        description="The next section starts immediately. You cannot return to this section."
+        footer={<><Button variant="secondary" onClick={() => setFinishOpen(false)} disabled={finishing}>Keep working</Button><Button onClick={finishCurrentSection} loading={finishing} className="min-w-32">Finish section</Button></>}>
+        <p className="text-sm leading-6 text-muted">
+          The time for this section will stop now. {currentSectionStat?.answered ?? 0} of {currentSectionStat?.total ?? 0} questions in this section are answered.
+        </p>
+        {finishError && <Banner tone="error" className="mt-3">{finishError}</Banner>}
+      </Modal>
       <SubmitDialog open={submitOpen} onClose={() => setSubmitOpen(false)} onConfirm={submit} answered={answered} total={total} loading={submitting} error={submitError} />
       <Modal open={!!proctorMsg && !locked} onClose={() => setProctorMsg(null)} dismissible={false} title="Message from the exam team" size="sm"
         footer={<Button onClick={() => setProctorMsg(null)}>Acknowledge</Button>}>

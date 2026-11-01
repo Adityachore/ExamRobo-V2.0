@@ -13,7 +13,7 @@ v1.4.0 (`Brain/VERSION`)
 
 ## Structure
 - `server/` — Express API: `routes/` (auth, student, tickets, exam, admin, bank), `services/` (paper, grading, views, live, sessions, lockout, redis, integrity, competency, analytics), `middleware/` (auth, security, async), `scripts/` (seed, migrate, verify, waitfor, scratch-db), `sql/schema.sql` + `sql/migrations/` + `sql/taxonomy.sql` + `sql/backfill.sql`, `smoke.mjs`, `load/k6.js`
-- `web/` — white-theme SPA (Login, Waiting, Exam, Result + admin: Events, Live, Results, Recordings, Flags, Tickets, Bank) — `/api` and `/ws` proxied by Vite (dev) and nginx (prod)
+- `web/` — white-theme SPA (Login, Waiting, Exam with Calculator, Result + admin: Events, Live, Results, Flags, Tickets, Bank) — `/api` and `/ws` proxied by Vite (dev) and nginx (prod)
 - `docker-compose.yml` — db (5450) + redis (6379) + api (4000) + web (8080)
 - `..\Exam-Robo-TestLab\` — the test bench next to the app: start/stop/reset/status/check/scenario/collect, 52 automated checks, manual checklist, API reference, diagnostics collector
 
@@ -22,7 +22,8 @@ v1.4.0 (`Brain/VERSION`)
   agent is designed (`Brain/LockdownAgent.md`, R-034) and scheduled for Phase 2;
   Phase 1 stays website-only and the agent is not built yet.
 - No intranet / IP allowlist in Phase 1 (deferred by user)
-- Raw MediaRecorder recording, no transcoding
+- Screen-recording upload is removed; the `recordings` table, existing rows and
+  the Docker volume are retained. There is no active recorder client or route.
 - Paper generated at exam start, not pre-generated
 - Coding round (Judge0) = Phase 1.5 only, after MCQ clearance
 - Live proctor dashboard required in Phase 1 (P4)
@@ -41,7 +42,15 @@ v1.4.0 (`Brain/VERSION`)
   the answer key order, and `question_variants.correct_idx` never leaves the server.
   Grading must therefore shift the 1-based `WITH ORDINALITY` down by one
   (`ord.n::int - 1`) — it did not, and every score was off by one question.
-- `ends_at = LEAST(now() + duration, starts_at + duration)`, computed once per paper.
+- `exam_events.duration_min` is only the start window. A paper's `ends_at` is
+  its start plus the full sum of its own `section_limits`; the event window
+  never truncates the paper deadline.
+- `papers.option_orders` stores each question's displayed option order.
+  `answers.choice` is the displayed index and is mapped back to the authored
+  option before grading or analytics.
+- Results are state-driven: `immediate`, `after_all_submitted`, `manual` and
+  `never`. Manual publication has an expiry; `results_published` is only a
+  compatibility mirror of `results_published_at`.
 - The SPA (`C:\Users\Asus\Downloads\examrobo-frontend\web`) is the read-only
   contract reference; `server/` + `server/index.js` next to it is the read-only
   mock that defined the error dialect.
@@ -61,8 +70,9 @@ v1.4.0 (`Brain/VERSION`)
   preventing the keydown is the only way to actually block a paste.
 - **A website cannot stop an operating-system capture.** The screenshot key is
   counted and ends the exam, but the picture is still taken. The instructions
-  say so; the screen recording is the evidence. The bare OS key press is
-  recorded as `os_chord` (logged, never penalised).
+  say so; screen recording is disabled, so the proctor event log is the
+  evidence. The bare OS key press is recorded as `os_chord` (logged, never
+  penalised).
 - **F11 does not set `document.fullscreenElement`.** A fullscreen exit is a
   true → false transition, never an event: F11 used to look like leaving
   fullscreen. The window is compared with the screen (±16 px) instead.
@@ -107,31 +117,43 @@ v1.4.0 (`Brain/VERSION`)
   correlated subqueries per paper (16.7 ms). The answer path is one statement,
   and the dashboard is updated with a cheap `session_patch` instead of a full
   session read on every click.
+- **An event's duration is derived from its section limits.** Fixed events use
+  the sum of their limits; select events use the common part plus the largest
+  allowed combination. Each select student's paper deadline is their own common
+  part plus the limits of the sections they chose.
+- **A section clock starts when its first question is opened.** An expired
+  section locks only itself; the rest of the paper and the overall deadline stay
+  live. Expired-section answers and question opens are refused with
+  `code: 'section_expired'`.
+- **Resume is deliberately narrow:** only `integrity_lockout`, `force_submit`
+  and `time_expired` papers can be resumed. Answers and progress are preserved,
+  section clocks reset, admin minutes are added and a reason is mandatory.
+- **Restart is a fresh attempt:** same selected domains, no answers/warnings/
+  score, reset timers, `attempt_no + 1`, and the old attempt is snapshotted in
+  `paper_attempt_history`.
+- **Event edits stop after the first paper exists.** Deletion is still allowed
+  with a typed event-name confirmation and cascades the event's data.
+- **Roster removal is a soft delete with consequences:** active sessions are
+  kicked and submitted with `submit_reason='removed'`; the result is kept and
+  re-adding the email restores access but never resurrects the submitted paper.
+- **Domain selection is scoped to the event id**, not to a bare session-storage
+  array, so two events cannot leak a chosen domain into each other.
 
 ## Verified (current)
-- `npm run verify` (server): all four phases green
-  - `node --test`: 90/90 (lockout, redis lockout, rate limit, shared rate limit,
-    paper randomization, grading, integrity policy, concurrency, browser signals,
-    competency rules + taxonomy, analytics rules, async error safety net)
-  - `server/smoke.mjs`: 96/96 against real Postgres (in-process, scratch database)
-  - `npm run build` (web): clean
-- `..\Exam-Robo-TestLab\check.bat`: 52/52 automated checks through nginx
-  (repeatable, and once more after a full `reset.bat`)
-- Docker: db + redis + api + web up; SPA, API, WS and the recording upload work
-  through `http://localhost:8080`
-- Live stack (2026-10-22): the bank serves 39 skills and the 5 difficulty levels,
-  the skill/difficulty filters and the re-tag endpoint answer live; the answer
-  path 11-18 ms, `GET /api/admin/live` 44 ms (was 101 ms), the fullscreen
-  heartbeat 0 → 1 → 1 warnings, two clipboard presses = 2 warnings, the third
-  warning auto-submits with `max_warnings`.
-- Live stack (2026-10-22, analytics): a student who answered the whole paper with
-  the admin key scored 9/9 and saw it broken down by skill and by difficulty; the
-  admin cohort showed `students=4 analysed=4` with the weakest skill first, and
-  each student's own breakdown came with the leaderboard row.
+- **2026-10-26:** `cd server && npm run verify` passes all four phases after the
+  Phase 16 work: preflight PASS, 131 unit tests PASS, web build PASS,
+  156/156 smoke assertions PASS.
+- Prior green baseline: `npm run verify` all four phases (90/90 unit,
+  96/96 smoke), Test Lab 52/52 through nginx, and the live analytics proof
+  (`students=4 analysed=4`, weakest skill first).
+- `Brain/NextSteps.md` T-1309 is COMPLETED; the earlier Docker block was cleared
+  by starting Docker Desktop.
 
 ## Open
-- The user still has to click through the new analytics UI in a browser (T-813);
-  the API level is verified.
+- The user still has to click through the redesigned candidate/domain/admin UI
+  in a browser (T-813, T-1039, T-1109); the API level is verified.
+- Capacity work (T-702/T-814) remains pending on the k6 summary, first-failure
+  lines and the cloud VM specs; `server/load/k6.js` still lacks WS scenarios.
 - Live-run scripts must use a **fresh event and a fresh roster address** each
   time: an expired event refuses the login ("This email is not eligible for
   this exam") and every failed login costs a lockout attempt (3 → 15 min block).

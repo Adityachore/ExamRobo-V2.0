@@ -23,11 +23,15 @@ export function securityHeaders(_req, res, next) {
 }
 
 // CORS with an explicit allowlist. In development the Vite dev server origins
-// are allowed; in production only the configured origins are.
+// are allowed; in production only the configured origins are, and an empty
+// allowlist means no cross-origin browser request is accepted (the web app is
+// served same-origin by nginx).
 export function corsAllowlist(allowed = process.env.CORS_ORIGINS) {
-  const list = (
-    allowed || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080'
-  )
+  const fallback =
+    process.env.NODE_ENV === 'production'
+      ? ''
+      : 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080';
+  const list = String(allowed || fallback)
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
@@ -37,7 +41,7 @@ export function corsAllowlist(allowed = process.env.CORS_ORIGINS) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-chunk-seq,x-safeexambrowser-configkeyhash');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-safeexambrowser-configkeyhash');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
       res.setHeader('Access-Control-Max-Age', '600');
     }
@@ -122,13 +126,6 @@ export const ticketRateLimit = createRateLimiter({
   windowMs: 60_000,
   max: Number(process.env.TICKET_RATE_LIMIT || 10),
   name: 'tickets',
-});
-
-// Recording chunks: a student may send one every ~10 s, so allow headroom.
-export const recordingRateLimit = createRateLimiter({
-  windowMs: 60_000,
-  max: Number(process.env.RECORDING_RATE_LIMIT || 30),
-  name: 'recording',
 });
 
 // A socket connection needs a short-lived, single-use ticket. Reconnects

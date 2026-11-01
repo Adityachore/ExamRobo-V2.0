@@ -1,5 +1,117 @@
 # ExamRobo Log
 
+## 2026-11-01 (final version selection and consolidation)
+
+- **The root tree is the final version.** A read-only audit of all nine on-disk
+  ExamRobo trees confirmed this repository (`Desktop\Exam-Robo-main`, branch
+  `ui/redesign`, HEAD `7f1dca3` + 91 uncommitted Phase 16/17 files) is the
+  newest and most complete code base. `examrobo-3` is a production snapshot
+  (2026-10-23) used as the source of ops/content assets; `examrobo-6` is an
+  older feature cut; the `Downloads\` copies are backups/fragments/reference.
+- **The bank is 1100 questions, not 221.** `Internship_Exam_Question_Bank_1100.md`
+  parses to exactly 1100 blocks, 11 domains × 100, 4 options each, 330 Basic /
+  715 Medium / 55 High, 55 with a `Scenario:` line. `examrobo-3`'s
+  `imported_questions.json` (221) is not the full bank.
+- **Decisions locked** (also in `userRequirement.md`, `Not.md`, `Later.md`):
+  recorder stays removed; adopt v3 production ops (Cloudflare nginx, `env_file`,
+  `DB_PASSWORD`, `127.0.0.1:8083`, `examrobo.pararobo.in`); import the full bank;
+  archive duplicates instead of deleting; Brain is the communication medium.
+- **Phase 18 opened** in `NextSteps.md` (T-1501..T-1513) with seven phases:
+  archive → git baseline → prod ops → code fixes → bank import → verify → release
+  → cutover (approval required).
+- **Release blockers found:** 91 uncommitted files; root `.env` lacks
+  `POSTGRES_PASSWORD` and there is no root `.env.example`; `DEPLOY.md` and import
+  tooling exist only in v3; the seed event has no `section_limits`; taxonomy
+  carries both `Cyber Security` and `Cybersecurity`; nginx does not forward the
+  Cloudflare client IP.
+- **Archive created:** `archive/versions/examrobo-3`, `archive/versions/examrobo-6`,
+  `archive/db/*.sql.gz`, integrity manifest `archive/MANIFEST.sha256`
+  (5,585 files). `archive/`, `*.sql.gz` and `.zcode/` are gitignored.
+- **Audit report written:** `AUDIT_FINAL_REPORT.md` (5 empty placeholder audit
+  files removed). **Next:** commit the baseline and backfill the v3 assets.
+
+## 2026-10-28 (target migration, results visibility, paper timing)
+
+- **Results visibility is state-driven.** Added `server/services/results.js` and
+  `GET /api/student/event` now returns the event visibility, publication time,
+  expiry and a student-safe `results_code`. `GET /api/exam/result` returns
+  `409 results_not_published`, `403 results_unavailable` or `403 results_expired`
+  instead of a single pending response. Submitted students may sign in after the
+  event window closes; result access is gated separately.
+- **Admin results controls.** Manual events can be published, extended and
+  unpublished (`POST /admin/events/:id/publish-results`,
+  `/results/extend`, `/results/unpublish`); the legacy boolean `/results`
+  endpoint remains as a compatibility wrapper. Publishing requires every
+  existing paper to be submitted and an explicit expiry. `GET /admin/session`
+  returns one session plus its event history for the live detail view.
+- **Event window and paper deadline are separate.** `exam_events.duration_min`
+  now controls only the start window. Every paper gets the full sum of its own
+  section limits. The student event payload exposes `paper_minutes` and
+  `min_paper_minutes`; Waiting/Exam label the window and paper time separately.
+- **Option-order grading.** `papers.option_orders` stores display order per
+  question. `answers.choice` is the displayed index, while grading and analytics
+  map it back to the authored option before comparing with `correct_idx`.
+  `submitPaper` now returns `option_orders` so the freeze survives submission.
+- **Calculator ported.** `web/src/lib/calculator.js` and
+  `web/src/components/exam/Calculator.jsx` add the client-only four-function
+  calculator to the runner header and floating panel.
+- **Student result states.** `Result.jsx` now handles unavailable, expired,
+  after-all-submitted and manual pending responses with distinct copy and the
+  expiry timestamp. Tests were added for result state, option-order grading and
+  the calculator.
+- **Verified:** `npm test` in `server` -> **153 pass**; `npm run build` in `web`
+  -> clean (2390 modules, 628 kB JS). `npm run verify` -> unit and web build
+  pass; preflight and smoke were **SKIPPED** because Postgres/Redis are not
+  running locally.
+- **Docs synced.** TRD, Schema, PRD, Flow and Design now describe results
+  visibility, option orders, paper timing, the Calculator, and the disabled
+  recorder. NextSteps marks the old recorder tasks superseded.
+- **Still open:** target-shaped scratch DB and preflight; migration bridge and
+  ledger checksum adoption; live cutover approval.
+
+## 2026-10-26 (admin controls, section timing, resume/restart)
+- **What was built.** Event CRUD (create, edit blocked after the first paper,
+  typed-name delete with cascade cleanup and an active-session kick), roster CRUD
+  (single add, edit, soft delete, bulk remove, restore, CSV export,
+  `has_paper`), and live-session recovery (`POST /admin/resume`,
+  `POST /admin/restart`). Every admin action is audited.
+- **Migration 007** (`server/sql/migrations/007_admin_controls.sql`) adds
+  `section_limits`, `paper_sections`, `admin_actions`, `paper_attempt_history`,
+  roster soft-delete fields, `papers.access_revoked_at`, `papers.attempt_no`,
+  `submit_reason='removed'` and the new proctor-event kinds. It is idempotent and
+  `schema.sql` mirrors it.
+- **Duration and section rules.** Event duration is derived from section limits
+  (fixed = sum; select = common + largest allowed combination). Each select
+  student's paper uses *their own* common + chosen limits. A section clock starts
+  when its first question is opened; an expired section locks only itself while
+  the overall paper stays live. Expired sections refuse answers and question
+  opens with `code: 'section_expired'`.
+- **Recovery rules.** Resume is limited to `integrity_lockout`, `force_submit`
+  and `time_expired`; answers/progress survive, section clocks reset, admin
+  minutes are added and a reason is required. Restart creates a fresh attempt
+  with the same domains, clears answers/warnings/score, resets timers,
+  increments `attempt_no` and snapshots the old attempt.
+- **Roster removal.** Soft delete, active session kicked, current answers
+  submitted with `submit_reason='removed'`, result retained. The removed student
+  gets 403 `code:'removed'` from waiting/start; resume is refused with 409
+  `student_removed`. Restore re-enables access but not the submitted paper.
+- **Frontend.** Events/Roster/Live pages gained the CRUD dialogs, pagination and
+  recovery actions; Runner gained section countdowns, locked-section navigation,
+  expiry banners and removed/restarted/resumed socket handling; Waiting/Exam now
+  read domain selection scoped by event id.
+- **Smoke work and the two defects it exposed.** The new coverage initially
+  failed on (1) assuming no section rows exist before a question is opened — the
+  server correctly returns placeholder rows with null clocks — and (2) reusing
+  the seeded event for resume after an earlier test moved a `Frontend` question
+  to `Logic`, leaving only two `Frontend` questions while the seeded event needs
+  three. The smoke now checks null clocks and gives resume/restart a dedicated
+  1/1/1 event.
+- **Verification status.** Docker Desktop was started, `docker compose up -d db
+  redis` confirmed both containers running, and `cd server && npm run verify`
+  passed all four phases: preflight **PASS**, 131 unit tests **PASS**, web build
+  **PASS**, and 156/156 smoke assertions **PASS**. T-1309 is green; the earlier
+  block was the Docker daemon, not an assertion failure.
+
 ## 2026-10-22 (domain selection — Plan A)
 - **Decisions taken with the user.** Plan A only: the student picks the
   technical domain(s) the exam asks about. Common part = `Aptitude` + `Logic`;

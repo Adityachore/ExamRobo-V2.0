@@ -4,8 +4,9 @@ The API is the system of record. This document is the contract the SPA codes
 against; it was derived from the white-theme reference implementation and is
 verified by `server/smoke.mjs` (51 assertions, run by `npm run verify`).
 
-Base URL: `/api`. All request and response bodies are JSON except the recording
-chunk upload, which is raw binary.
+Base URL: `/api`. All request and response bodies are JSON. Screen recording
+upload and review are disabled; the legacy `recordings` table and files are
+retained but no API writes or serves them.
 
 ## Auth model
 | | |
@@ -38,17 +39,21 @@ Every error response is `{ "error": "<message>" }` plus optional fields:
 
 Rate limits are fixed windows. With Redis reachable the counter is shared by
 every API instance (`examrobo:ratelimit:<name>:<id>`: auth = ip + email,
-tickets and recordings = ip); without Redis the API falls back to a per-process
-counter.
+tickets = ip); without Redis the API falls back to a per-process counter.
 | Exam not started | 409 | `{ error: 'The exam has not started yet.', code: 'not_started', starts_at, server_time }` |
 | Exam over | 409 | `{ error: 'This exam has ended.', code: 'ended' }` |
 | Already submitted | 409 | `{ error: 'Exam already submitted.', code: 'submitted' }` |
 | Result before submit | 409 | `{ error: 'Not submitted yet.', code: 'active' }` |
+| Result waiting for all papers | 409 | `{ error, code: 'results_not_published', visibility: 'after_all_submitted', results_expires_at }` |
+| Result hidden by admin | 409 | `{ error, code: 'results_not_published', visibility: 'manual', results_expires_at }` |
+| Result never available | 403 | `{ error, code: 'results_unavailable', visibility: 'never', results_expires_at }` |
+| Result window closed | 403 | `{ error, code: 'results_expired', visibility, results_expires_at }` |
+| Access removed | 403 | `{ error, code: 'removed' }` |
 | Invalid event payload | 400 | `{ error: 'Please fix the highlighted fields.', fields: { name: '...' } }` |
 | Public ticket without body | 400 | `{ error: 'Email and reason are required.' }` |
 | Any call on a locked exam | 409 | `{ error: 'This exam was ended for an integrity violation.', code: 'locked', locked: true, lock_reason }` |
 
-## Endpoints (35)
+## Endpoints
 
 ### Auth
 | Method | Path | Auth | Notes |
@@ -64,25 +69,34 @@ counter.
 ### Student
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/api/student/event` | student | current event for the waiting room; a domain-aware event also carries the `domains` block (see [Domain selection](#domain-selection-r-015)) |
+| GET | `/api/student/event` | student | waiting room; carries `paper_minutes`/`min_paper_minutes`, `results_visibility`, `results_published*`, `results_expires_at`, `results_available`/`results_code`, and a domain-aware event's `domains` block |
 | POST | `/api/exam/start` | student | creates/returns the paper; full `examState`; a domain-aware event takes `{ domains: [...] }` |
 | POST | `/api/exam/answer` | student | `{ question_id, choice, index? }` upsert → `{ ok, answered, saved_at }` — `answered` is the exact number of answered questions |
 | POST | `/api/exam/snapshot` | student | `{ current_index?, fullscreen? }` heartbeat → `{ ok, warnings, max_warnings, submitted, ends_at, server_time }` |
 | POST | `/api/exam/event` | student | proctor event — see [Integrity events](#integrity-events) |
-| POST | `/api/exam/submit` | student | grades immediately |
-| GET | `/api/exam/result` | student | `{ total, max, sections, competency, started_at, submitted_at, submit_reason, event_name, feedback_sent }` |
+| POST | `/api/exam/section/finish` | student | lock the current section early; `{ section }` |
+| POST | `/api/exam/submit` | student | grades immediately; returns `option_orders` |
+| GET | `/api/exam/result` | student | `{ total, max, sections, competency, submitted_at, submit_reason, event_name, feedback_sent }`; **409** `results_not_published` or **403** `results_unavailable`/`results_expired` when hidden |
 | POST | `/api/exam/feedback` | student | `{ rating, comment }`, once per paper |
-| POST | `/api/exam/recording/chunk` | student | raw binary chunk, header `x-chunk-seq` |
 
 ### Admin
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/api/admin/events` | admin | `{ events, server_time }` |
 | POST | `/api/admin/events` | admin | create event; a domain-aware event adds `domain_mode: 'select'` and `domain_rules` (see [Domain selection](#domain-selection-r-015)) |
+| PATCH | `/api/admin/events/:id` | admin | edit event configuration before the first paper; **409** after a paper exists |
+| DELETE | `/api/admin/events/:id` | admin | typed-name delete; cascade cleanup, active-session kick and audit |
+| POST | `/api/admin/events/:id/publish-results` | admin | manual mode only; `{ expires_in }` preset or `{ expires_at }`; all existing papers must be submitted |
+| POST | `/api/admin/events/:id/results/extend` | admin | extend `results_expires_at` |
+| POST | `/api/admin/events/:id/results/unpublish` | admin | clear publication and expiry |
+| POST | `/api/admin/events/:id/results` | admin | compatibility alias for publish-results |
 | GET | `/api/admin/events/:id/roster` | admin | `{ roster, roster_updated_at }` |
 | POST | `/api/admin/events/:id/roster` | admin | `{ text }` → `{ added, updated, invalid, roster_updated_at }` |
-| GET | `/api/admin/live` | admin | `{ sessions, events, server_time }` |
+| GET | `/api/admin/live` | admin | `{ sessions, events, server_time }`; sessions carry `paper_id`, `current_section`, `section_name` |
+| GET | `/api/admin/session` | admin | `?key=` one session plus full event history |
 | POST | `/api/admin/force-submit` | admin | `{ key }` |
+| POST | `/api/admin/resume` | admin | resume a locked/expired session with preserved answers |
+| POST | `/api/admin/restart` | admin | snapshot the old attempt and reset section clocks; audited replacement for target `/retry` |
 | POST | `/api/admin/lock` | admin | `{ key, reason }` — locks the session like an automatic lockout |
 | POST | `/api/admin/message` | admin | `{ key, message }` |
 | GET | `/api/admin/flags` | admin | `{ flags }` (optional `?event_id=`) |
@@ -94,8 +108,6 @@ counter.
 | GET | `/api/admin/results.csv` | admin | text/csv, header `rank,name,email,total,max,submitted_at` |
 | GET | `/api/admin/analytics` | admin | `{ event_id, students, analysed, skills, difficulties }` - the cohort: the accuracy of every skill and every difficulty across all submissions, the weakest first |
 | GET | `/api/admin/analytics.csv` | admin | text/csv, header `dimension,key,label,category,total,answered,correct,accuracy` |
-| GET | `/api/admin/recordings` | admin | `{ recordings }` |
-| GET | `/api/admin/recordings/:key/chunks/:seq` | admin | raw chunk bytes |
 
 ### Bank
 | Method | Path | Auth | Notes |
@@ -234,9 +246,6 @@ or **select** (the student picks the technical domain in the waiting room).
   "answered": 4,
   "total": 9,
   "warnings": 0,
-  "last_chunk_at": "2026-10-21T10:05:00.000Z",
-  "chunk_count": 12,
-  "gaps": 0,
   "submit_reason": null,
   "locked": false,
   "lock_reason": null,
@@ -255,12 +264,26 @@ or **select** (the student picks the technical domain in the waiting room).
   "reason": "...", "status": "open", "created_at": "2026-10-21T10:00:00.000Z" }
 ```
 
-### Recording
-```json
-{ "key": "<event_id>:<email>", "event_id": "<uuid>", "email": "student@example.com",
-  "name": "Student One", "chunk_count": 12, "gap_count": 0, "seqs": [0,1,2],
-  "mime": "video/webm", "approx_duration_sec": 120, "last_chunk_at": "..." }
-```
+### Paper timing and option ordering
+`exam_events.duration_min` is the event/start window only. A paper's deadline is
+the sum of its own `section_limits`; `papers.ends_at` is no longer clamped to the
+event window. `section_limits` is canonical and `module_minutes` is retained as
+a dormant alias. `papers.option_orders` stores the displayed option order per
+question; `answers.choice` is the displayed index and grading maps it through
+`option_orders` to the authored index before comparing `correct_idx`.
+
+### Calculator
+The in-exam Calculator is client-only (`web/src/lib/calculator.js` +
+`web/src/components/exam/Calculator.jsx`), opened from the Runner header or
+mobile bar; it never calls the API.
+
+### Result visibility
+`results_visibility` is `immediate`, `after_all_submitted`, `manual` or `never`.
+`immediate` is visible as soon as the student submits, including mid-event.
+`after_all_submitted` waits for every existing paper to be submitted and ignores
+students without a paper. `manual` waits for an admin publish and an expiry.
+`never` hides student results while admins retain access. The target's stored
+value is preserved exactly; post-target-`009` events are not blanket-flipped.
 
 ### Result
 ```json
@@ -327,7 +350,7 @@ Server → client messages:
 |---|---|
 | `{ type: 'snapshot', sessions, events, server_time }` | admin connects |
 | `{ type: 'session', session }` | a session changed in a way that needs the whole view (a warning, a lock) |
-| `{ type: 'session_patch', key, patch }` | a cheap update: `patch` carries only what changed (`answered`, `current_index`, `chunk_count`, `max_chunk`, `last_chunk_at`). The dashboard merges it into the session it already has — this is what every answer click and every recording chunk sends, instead of a full session read |
+| `{ type: 'session_patch', key, patch }` | a cheap update: `patch` carries only what changed (`answered`, `current_index`, `last_seen_at`). The dashboard merges it into the session it already has — this is what every answer click and heartbeat sends, instead of a full session read |
 | `{ type: 'event', event }` | a proctor event was logged |
 | `{ type: 'message', text, at }` | admin → student message |
 | `{ type: 'submitted', reason }` | student was force-submitted or auto-submitted |
@@ -341,13 +364,14 @@ With Redis enabled the API publishes these messages on `examrobo:ws` and every
 instance delivers them to its own clients, so a dashboard on instance A sees a
 student on instance B.
 
-## Recording upload
-- `POST /api/exam/recording/chunk` with the raw chunk as the body and the
-  sequence number in the `x-chunk-seq` header.
-- Binary body limit 8 MB (nginx `client_max_body_size 12m`), JSON limit 2 MB.
-- Chunks are written to `RECORDINGS_DIR/<paper>/<seq>.bin` and the row in
-  `recordings` is upserted on `(paper_id, chunk_no)` → retries are safe.
-- Missing sequence numbers are tolerated: the recording view reports `gap_count`.
+## Screen recording (disabled)
+- Active client capture, chunk upload, recording review routes and the
+  Recordings admin page are removed.
+- The `recordings` table, existing rows, `RECORDINGS_DIR` volume and compose
+  mount are retained for data preservation. Admin event deletion may still
+  clean the directory through `removeRecordingDirs`.
+- `recording_revoked` remains an accepted historical integrity kind; it is not
+  emitted by the current client.
 
 ## Operational rules
 - The server never exposes `correct_idx` before submit.

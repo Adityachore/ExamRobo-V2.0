@@ -9,14 +9,15 @@ roster, watch the exam live, and export the results.
 ## What was done
 - **Spec suite**: PRD (R-001..R-070 + R-013 + R-014), Schema (15 tables), TRD (full API contract),
   Design, Flow, NextSteps (93 tasks), Issue ledger, a Phase-2 lockdown agent design.
-- **Backend**: Express 4 + pg + ws + ioredis, ESM, 37 endpoints, WebSocket
-  telemetry, raw MediaRecorder chunk upload, server-side grading, timer and
-  a three-tier integrity policy.
+- **Backend**: Express 4 + pg + ws + ioredis, ESM, WebSocket telemetry,
+  server-side grading, section/paper timing, results visibility, option-order
+  mapping and a three-tier integrity policy. Active screen recording is removed.
 - **Frontend**: the white-theme React SPA (React 19, Vite 8, Tailwind v4,
-  Router 7) — student flow (Login → Waiting → Exam → Result → Locked) and the
-  admin console (Events, Live, Results, Recordings, Flags, Tickets, Bank).
+  Router 7) - student flow (Login -> Waiting -> Exam -> Result -> Locked) with
+  the in-exam Calculator, and the admin console (Events, Live, Results, Flags,
+  Tickets, Bank).
 - **Infrastructure**: docker-compose (PostgreSQL 16, Redis 7, API, nginx),
-  migrations, seed script, a 96-assertion smoke test, k6 load script, runbook,
+  migrations, seed script, a 156-assertion smoke test, k6 load script, runbook,
   and a one-command verification (`npm run verify`) that runs on a scratch
   database and can never touch the live one.
 - **Test bench**: `..\Exam-Robo-TestLab\` — one-click start/stop/reset/status/

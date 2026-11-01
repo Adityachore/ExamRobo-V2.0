@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
-import { Check, CircleAlert, Info, LoaderCircle, ShieldCheck, TriangleAlert, X } from 'lucide-react';
+import { Check, CircleAlert, GraduationCap, Info, LoaderCircle, TriangleAlert, X } from 'lucide-react';
 
 export const cx = (...a) => a.filter(Boolean).join(' ');
 
-export function Logo({ className }) {
+export function Logo({ className, sub }) {
   return (
     <span className={cx('inline-flex items-center gap-2.5 font-semibold tracking-tight text-ink', className)}>
-      <span className="grid h-8 w-8 place-items-center rounded-[8px] bg-primary text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.7)]"><ShieldCheck size={17} aria-hidden /></span>
-      <span>ExamRobo</span>
+      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-[0_6px_14px_-6px_rgb(37_99_235/.8)]"><GraduationCap size={17} aria-hidden /></span>
+      <span className="leading-none">Exam<span className="er-grad-text">Robo</span>{sub && <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.3em] text-muted">{sub}</span>}</span>
     </span>
   );
 }

@@ -78,6 +78,8 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   ).j.token;
   r = await call('/auth/admin', { m: 'POST', body: { email: 'admin@examrobo.dev', password: 'bad' } });
   ok(r.s === 401, 'bad admin password -> 401');
+  r = await call(`/admin/events/${eventId}/results`, { m: 'POST', tok: adm, body: { published: true } });
+  ok(r.s === 400 && r.j.code === 'results_expiry_required', 'publishing results requires an expiry window');
   const stu = await login('student@example.com');
   ok(!!stu, 'eligible student signs in');
   r = await call('/admin/events', { tok: stu });
@@ -164,29 +166,37 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   }
   ok(keyed === 9, 'all 9 questions answered with the answer key');
 
-  // warnings
+  // warnings: the third warning submits, and the server enforces that.
   r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'tab_blur' } });
   ok(r.j.warnings === 1 && !r.j.submitted, 'warning 1');
   r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'fullscreen_exit' } });
-  ok(r.j.warnings === 2, 'warning 2');
+  ok(r.j.warnings === 2 && !r.j.submitted, 'warning 2');
   r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'tab_blur' } });
-  ok(r.j.warnings === 3 && !r.j.submitted, 'warning 3 is flagged for review, not submitted');
+  ok(r.j.warnings === 3 && r.j.submitted === true, 'warning 3 submits the exam');
   r = await call('/exam/answer', { m: 'POST', tok: stu, body: { question_id: q0.id, choice: answerKey.get(q0.id) } });
-  ok(r.s === 200, 'answering still works after three warnings');
+  ok(r.s === 409, 'answers are rejected after the warning limit');
   r = await call('/exam/submit', { m: 'POST', tok: stu });
-  ok(r.s === 200, 'the student can hand in the exam');
-  r = await call('/exam/answer', { m: 'POST', tok: stu, body: { question_id: q0.id, choice: answerKey.get(q0.id) } });
-  ok(r.s === 409, 'answers rejected after submit');
+  ok(r.s === 200, 'submitting an already submitted paper is idempotent');
   r = await call('/exam/start', { m: 'POST', tok: stu });
-  ok(r.j.status === 'submitted', 'restart after submit does not create a new attempt');
+  ok(r.j.status === 'submitted' && r.j.submit_reason === 'max_warnings', 'restart reports the warning submission');
   r = await call('/exam/result', { tok: stu });
+  ok(r.s === 409 && r.j.code === 'results_not_published', 'results stay hidden until an admin publishes them');
+  const { rows: studentResultRows } = await pool.query(
+    `SELECT submit_reason, result_snapshot FROM papers
+      WHERE event_id = $1 AND email = 'student@example.com'`,
+    [eventId],
+  );
+  const studentSnapshot = studentResultRows[0]?.result_snapshot || {};
   ok(
-    r.s === 200 && r.j.max === 9 && r.j.total === 9 && r.j.submit_reason === 'student' && r.j.locked === false,
-    'result graded by server (full score for the answer key)',
+    studentResultRows[0]?.submit_reason === 'max_warnings' &&
+      studentSnapshot.max === 9 && studentSnapshot.total === 9,
+    'the warning submission was graded by the server (full score for the answer key)',
   );
   // The result says what the exam measured: the competency the paper froze.
-  const skillRows = r.j.competency?.skills || [];
-  const difficultyRows = r.j.competency?.difficulties || [];
+  r = await call('/admin/results', { tok: adm });
+  const studentRow = r.j.results.find((row) => row.email === 'student@example.com');
+  const skillRows = studentRow?.competency?.skills || [];
+  const difficultyRows = studentRow?.competency?.difficulties || [];
   ok(
     skillRows.reduce((a, s) => a + s.total, 0) === 9,
     'the result breaks the exam down by skill, and every question is counted',
@@ -204,7 +214,7 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
     'no skill claims more answers than it has questions',
   );
   ok(
-    !JSON.stringify(r.j.competency).includes('correct_idx'),
+    !JSON.stringify(studentRow?.competency || {}).includes('correct_idx'),
     'the result carries counts, never the answer key',
   );
   r = await call('/exam/feedback', { m: 'POST', tok: stu, body: { rating: 4, comment: 'ok' } });
@@ -232,7 +242,7 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   );
   ws.close();
   r = await call('/exam/result', { tok: s2 });
-  ok(r.s === 200 && r.j.submit_reason === 'force_submit', 'forced result available');
+  ok(r.s === 409 && r.j.code === 'results_not_published', 'a forced submission also waits for publication');
 
   /* ------------------------------------------------------- integrity policy */
 
@@ -260,13 +270,13 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   r = await call('/exam/event', { m: 'POST', tok: s3, body: { kind: 'screenshot_key' } });
   ok(r.s === 200 && r.j.warnings === 2 && !r.j.locked && !r.j.submitted, 'a screenshot key is a warning');
   r = await call('/exam/event', { m: 'POST', tok: s3, body: { kind: 'screenshot_key' } });
-  ok(r.j.warnings === 3 && !r.j.locked && !r.j.submitted, 'a third capture warning is flagged, not submitted');
+  ok(r.s === 200 && r.j.warnings === 3 && !r.j.locked && r.j.submitted, 'a third capture warning submits the exam');
   r = await call('/exam/answer', { m: 'POST', tok: s3, body: { question_id: s3q.id, choice: 1 } });
-  ok(r.s === 200, 'the exam continues after three warnings');
+  ok(r.s === 409, 'the warning-limited exam no longer accepts answers');
   r = await call('/exam/submit', { m: 'POST', tok: s3 });
-  ok(r.s === 200, 'the flagged student can still hand in');
+  ok(r.s === 200, 'a submitted paper can be handed in again');
   r = await call('/exam/result', { tok: s3 });
-  ok(r.j.submit_reason === 'student' && r.j.locked === false, 'a warning-built attempt is graded normally');
+  ok(r.s === 409 && r.j.code === 'results_not_published', 'the warning submission is graded but hidden');
 
   // The fullscreen state travels in the heartbeat. The server keeps the last
   // state, so leaving fullscreen is one warning even when the client says so
@@ -349,7 +359,15 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   r = await call('/admin/lock', { m: 'POST', tok: adm, body: { key: lockKey, reason: 'Locked by the proctor.' } });
   ok(r.s === 200, 'the proctor can lock a session');
   r = await call('/exam/result', { tok: s4 });
-  ok(r.j.submit_reason === 'integrity_lockout' && r.j.locked === true, 'a manual lock ends the exam like an automatic one');
+  ok(r.s === 409 && r.j.code === 'results_not_published', 'a manual lock ends the exam without revealing the score');
+  const { rows: lockRows } = await pool.query(
+    `SELECT submit_reason, lock_reason FROM papers WHERE event_id = $1 AND email = 'session@example.com'`,
+    [eventId],
+  );
+  ok(
+    lockRows[0]?.submit_reason === 'integrity_lockout' && !!lockRows[0]?.lock_reason,
+    'a manual lock is recorded as an integrity lockout',
+  );
 
   // admin data
   r = await call('/admin/results', { tok: adm });
@@ -514,7 +532,11 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
 
   // A paper keeps its own copy of the competency. Re-tagging a question that
   // an exam already used must not rewrite that exam.
-  const resultBefore = await call('/exam/result', { tok: stu });
+  const { rows: resultBeforeRows } = await pool.query(
+    `SELECT result_snapshot FROM papers WHERE event_id = $1 AND email = 'student@example.com'`,
+    [eventId],
+  );
+  const resultBefore = resultBeforeRows[0].result_snapshot;
   const { rows: frozen } = await pool.query(
     `SELECT pq.skill_code, pq.difficulty, v.question_id
        FROM paper_questions pq
@@ -545,13 +567,19 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   // The same through the API: the result the student sees does not change
   // either. The seeded questions never reach difficulty 5, so a broken freeze
   // would show up as a new "Expert" row.
-  const resultAfter = await call('/exam/result', { tok: stu });
+  const { rows: resultAfterRows } = await pool.query(
+    `SELECT result_snapshot FROM papers WHERE event_id = $1 AND email = 'student@example.com'`,
+    [eventId],
+  );
+  const resultAfter = resultAfterRows[0].result_snapshot;
   ok(
-    JSON.stringify(resultAfter.j.competency) === JSON.stringify(resultBefore.j.competency),
+    JSON.stringify(resultAfter) === JSON.stringify(resultBefore),
     'the result of an exam does not change when a question is re-tagged',
   );
+  const frozenLeaderboard = await call('/admin/results', { tok: adm });
+  const frozenStudent = frozenLeaderboard.j.results.find((row) => row.email === 'student@example.com');
   ok(
-    !resultAfter.j.competency.difficulties.some((d) => d.level === 5),
+    !frozenStudent.competency.difficulties.some((d) => d.level === 5),
     'the difficulty of the exam is the frozen one, not the new tag',
   );
   r = await call('/admin/flags', { m: 'POST', tok: adm, body: { kind: 'MISCONDUCT', email: 'x@y.com', reason: 'test' } });
@@ -679,9 +707,258 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
     'the sections a running paper shows do not move either',
   );
 
+  /* --------------------------------------------------------- section timing */
+
+  // Section limits start when the student opens a question in that section.
+  // An expired section locks only itself; the rest of the paper stays live.
+  r = await call('/admin/events', {
+    m: 'POST',
+    tok: adm,
+    body: {
+      name: 'Section Timing Run',
+      starts_at: new Date(Date.now() - 1000).toISOString(),
+      config: { Aptitude: 1, Logic: 1, Frontend: 1 },
+      section_limits: { Aptitude: 5, Logic: 5, Frontend: 20 },
+    },
+  });
+  ok(r.s === 201 && r.j.event?.duration_min === 30, 'an event derives its duration from its section limits');
+  const sectionEventId = r.j.event.id;
+  await call(`/admin/events/${sectionEventId}/roster`, {
+    m: 'POST',
+    tok: adm,
+    body: { text: 'sections@example.com, Section Test' },
+  });
+  const ss = await login('sections@example.com');
+  r = await call('/exam/start', { m: 'POST', tok: ss });
+  ok(r.s === 200 && r.j.status === 'active', 'the section student starts');
+  const sectionPaper = r.j.paper;
+  const firstSection = sectionPaper.sections[0];
+  const secondSection = sectionPaper.sections[1];
+  const thirdSection = sectionPaper.sections[2];
+  const secondQuestion = secondSection.questions[0];
+  ok(
+    (r.j.sections || []).length === 3 &&
+      r.j.sections[0].state === 'active' &&
+      r.j.sections[0].remaining_sec > 0 &&
+      r.j.sections.slice(1).every((s) => s.state === 'locked' && s.started_at === null),
+    'the first section starts with the paper and the rest stay locked',
+  );
+
+  const { rows: paperTiming } = await pool.query(
+    `SELECT EXTRACT(EPOCH FROM (ends_at - started_at)) / 60 AS minutes
+       FROM papers WHERE event_id = $1 AND email = 'sections@example.com'`,
+    [sectionEventId],
+  );
+  ok(Math.round(Number(paperTiming[0].minutes)) === 30, 'the paper deadline uses its own section limits');
+
+  r = await call('/exam/question/0', { tok: ss });
+  ok(
+    r.s === 200 && r.j.section?.category === firstSection.name && r.j.section.remaining_sec > 0,
+    'the active section clock is reported with its question',
+  );
+  r = await call('/exam/answer', {
+    m: 'POST',
+    tok: ss,
+    body: { question_id: thirdSection.questions[0].id, choice: 1 },
+  });
+  ok(r.s === 403 && r.j.code === 'section_locked', 'a future section refuses answers');
+  await pool.query(
+    `UPDATE paper_sections
+        SET started_at = now() - interval '6 minutes',
+            ends_at = now() - interval '1 minute'
+      WHERE paper_id = (SELECT id FROM papers WHERE event_id = $1 AND email = 'sections@example.com')
+        AND category = $2`,
+    [sectionEventId, firstSection.name],
+  );
+  r = await call('/exam/answer', {
+    m: 'POST',
+    tok: ss,
+    body: { question_id: firstSection.questions[0].id, choice: 1 },
+  });
+  ok(r.s === 409 && r.j.code === 'section_completed', 'a finished section refuses answers');
+  r = await call('/exam/snapshot', { m: 'POST', tok: ss, body: { current_index: 0, fullscreen: true } });
+  ok(
+    r.s === 200 &&
+      r.j.sections.some((s) => s.category === firstSection.name && s.locked && s.state === 'completed') &&
+      r.j.sections.some((s) => s.category === secondSection.name && s.state === 'active'),
+    'the expired section is completed and the next one is unlocked',
+  );
+  r = await call('/exam/answer', {
+    m: 'POST',
+    tok: ss,
+    body: { question_id: secondQuestion.id, choice: 1 },
+  });
+  ok(r.s === 200, 'the next section accepts answers after one section expires');
+  r = await call('/exam/start', { m: 'POST', tok: ss });
+  ok(r.j.status === 'active', 'the overall paper stays active after a section expires');
+
+  r = await call('/exam/section/finish', { m: 'POST', tok: ss, body: { category: secondSection.name } });
+  ok(
+    r.s === 200 && r.j.submitted === false && r.j.active_section === thirdSection.name,
+    'finishing a section starts the next one',
+  );
+  r = await call('/exam/section/finish', { m: 'POST', tok: ss, body: { category: firstSection.name } });
+  ok(r.s === 409 && r.j.code === 'section_not_active', 'a finished section cannot be finished again');
+  r = await call('/exam/section/finish', { m: 'POST', tok: ss, body: { category: thirdSection.name } });
+  ok(r.s === 200 && r.j.submitted === true && r.j.submit_reason === 'student', 'finishing the last section submits');
+  const { rows: sectionResult } = await pool.query(
+    `SELECT submit_reason FROM papers WHERE event_id = $1 AND email = 'sections@example.com'`,
+    [sectionEventId],
+  );
+  ok(sectionResult[0]?.submit_reason === 'student', 'the last-section finish is stored as a student submission');
+
+  /* ------------------------------------------------------- resume / restart */
+
+  r = await call('/admin/events', {
+    m: 'POST',
+    tok: adm,
+    body: {
+      name: 'Resume Restart Run',
+      starts_at: new Date(Date.now() - 1000).toISOString(),
+      duration_min: 60,
+      config: { Aptitude: 1, Logic: 1, Frontend: 1 },
+    },
+  });
+  ok(r.s === 201, 'an event for the resume and restart checks is created');
+  const resumeEventId = r.j.event.id;
+  await call(`/admin/events/${resumeEventId}/roster`, {
+    m: 'POST',
+    tok: adm,
+    body: { text: 'resume@example.com, Resume Test' },
+  });
+  const sr = await login('resume@example.com');
+  r = await call('/exam/start', { m: 'POST', tok: sr });
+  const resumeQuestion = r.j?.paper?.sections?.[0]?.questions?.[0];
+  ok(!!resumeQuestion, 'the resume student starts');
+  if (!resumeQuestion) {
+    throw new Error(`resume start failed: ${r.s} ${JSON.stringify(r.j)}`);
+  }
+  await call('/exam/answer', { m: 'POST', tok: sr, body: { question_id: resumeQuestion.id, choice: 1 } });
+  const resumeKey = `${resumeEventId}:resume@example.com`;
+  r = await call('/admin/force-submit', { m: 'POST', tok: adm, body: { key: resumeKey } });
+  ok(r.s === 200, 'the proctor can force-submit an active paper');
+  r = await call('/admin/resume', {
+    m: 'POST',
+    tok: adm,
+    body: { key: resumeKey, minutes: 5, reason: 'Smoke resume' },
+  });
+  ok(r.s === 200 && r.j.session?.status === 'active', 'the admin can resume a force-submitted paper');
+  r = await call('/exam/start', { m: 'POST', tok: sr });
+  ok(
+    r.j.status === 'active' && r.j.answers[resumeQuestion.id] === 1,
+    'a resumed paper keeps its answers and section progress',
+  );
+  r = await call('/admin/force-submit', { m: 'POST', tok: adm, body: { key: resumeKey } });
+  ok(r.s === 200, 'the resumed paper can be submitted again');
+
+  r = await call('/admin/restart', {
+    m: 'POST',
+    tok: adm,
+    body: { key: resumeKey, reason: 'Smoke restart' },
+  });
+  ok(r.s === 200 && r.j.session?.status === 'active', 'the admin can restart a submitted paper');
+  r = await call('/exam/start', { m: 'POST', tok: sr });
+  ok(
+    r.j.status === 'active' && Object.keys(r.j.answers || {}).length === 0,
+    'a restarted paper starts with no answers',
+  );
+  const { rows: restartState } = await pool.query(
+    `SELECT p.id, p.attempt_no,
+            (SELECT count(*)::int FROM paper_attempt_history h WHERE h.paper_id = p.id) AS history
+       FROM papers p WHERE p.event_id = $1 AND p.email = 'resume@example.com'`,
+    [resumeEventId],
+  );
+  ok(restartState[0].attempt_no === 2, 'a restart increments the attempt number');
+  ok(restartState[0].history === 1, 'a restart keeps the previous attempt as history');
+
+  // A forced submission after every section was finished must not make resume a
+  // no-op. The last section is reopened with the extension, not submitted again.
+  await pool.query(
+    `UPDATE paper_sections
+        SET started_at = now() - interval '1 minute',
+            ends_at = now() + interval '1 minute',
+            completed_at = now()
+      WHERE paper_id = $1`,
+    [restartState[0].id],
+  );
+  r = await call('/admin/force-submit', { m: 'POST', tok: adm, body: { key: resumeKey } });
+  ok(r.s === 200, 'a paper with every section finished can be force-submitted');
+  r = await call('/admin/resume', {
+    m: 'POST',
+    tok: adm,
+    body: { key: resumeKey, minutes: 5, reason: 'Resume after every section finished' },
+  });
+  ok(r.s === 200 && r.j.session?.status === 'active', 'the admin can resume a fully finished paper');
+  r = await call('/exam/start', { m: 'POST', tok: sr });
+  const lastResumeSection = r.j?.paper?.sections?.[r.j.paper.sections.length - 1]?.name;
+  ok(
+    r.j.status === 'active' && !!lastResumeSection && r.j.active_section === lastResumeSection,
+    'resume reopens the last completed section instead of submitting again',
+  );
+
+  r = await call(`/admin/events/${resumeEventId}/roster/${encodeURIComponent('resume@example.com')}`, {
+    m: 'DELETE',
+    tok: adm,
+    body: { reason: 'Smoke removal' },
+  });
+  ok(r.s === 200 && r.j.submitted === true, 'removing an active student submits their current answers');
+  r = await call('/student/event', { tok: sr });
+  ok(r.s === 403 && r.j.code === 'removed', 'a removed student cannot reach the waiting room');
+  r = await call('/exam/start', { m: 'POST', tok: sr });
+  ok(r.s === 403 && r.j.code === 'removed', 'a removed student cannot start or resume a paper');
+  r = await call('/exam/result', { tok: sr });
+  ok(r.s === 403 && r.j.code === 'removed', 'a removed student cannot see an unpublished score');
+  const { rows: removedResult } = await pool.query(
+    `SELECT submit_reason FROM papers WHERE event_id = $1 AND email = 'resume@example.com'`,
+    [resumeEventId],
+  );
+  ok(removedResult[0]?.submit_reason === 'removed', 'a removed student keeps their submitted attempt');
+  r = await call(`/admin/events/${resumeEventId}/results`, {
+    m: 'POST',
+    tok: adm,
+    body: { published: true, preset: '1h' },
+  });
+  ok(r.s === 200 && r.j.event.results_published === true, 'the removal event can publish results');
+  r = await call('/exam/result', { tok: sr });
+  ok(r.s === 403 && r.j.code === 'removed', 'a removed student cannot see a published score');
+  r = await call('/admin/resume', {
+    m: 'POST',
+    tok: adm,
+    body: { key: resumeKey, minutes: 5, reason: 'Should be refused' },
+  });
+  ok(r.s === 409 && r.j.code === 'student_removed', 'a removed student cannot be resumed');
+
   // A classic event has no domain selection at all.
   r = await call('/student/event', { tok: stu });
   ok(r.j.domains?.enabled === false, 'a classic event has no domain selection');
+
+  /* ------------------------------------------------------- result publication */
+
+  // Move the event's window into the past, then publish with an expiry. The
+  // score becomes visible only after the manual publication is in effect.
+  await pool.query(
+    `UPDATE exam_events SET starts_at = now() - interval '61 minutes' WHERE id = $1`,
+    [eventId],
+  );
+  r = await call('/exam/result', { tok: stu });
+  ok(r.s === 409 && r.j.code === 'results_not_published', 'an ended event still hides unpublished results');
+  r = await call(`/admin/events/${eventId}/results`, {
+    m: 'POST',
+    tok: adm,
+    body: { published: true, preset: '1h' },
+  });
+  ok(r.s === 200 && r.j.event.results_published === true, 'an admin can publish results with an expiry');
+  r = await call('/exam/result', { tok: stu });
+  ok(
+    r.s === 200 && r.j.max === 9 && r.j.submit_reason === 'max_warnings' && r.j.locked === false,
+    'the published result is available to the student',
+  );
+  r = await call('/auth/student', { m: 'POST', body: { email: 'student@example.com' } });
+  ok(r.s === 200 && !!r.j.token, 'a student can sign in after the event to view published results');
+  r = await call(`/admin/events/${eventId}/results`, { m: 'POST', tok: adm, body: { published: false } });
+  ok(r.s === 200 && r.j.event.results_published === false, 'publication can be reversed');
+  r = await call('/exam/result', { tok: stu });
+  ok(r.s === 409 && r.j.code === 'results_not_published', 'unpublishing hides the result again');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   await clearLockout(lockoutEmail);

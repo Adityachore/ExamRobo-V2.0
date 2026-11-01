@@ -117,8 +117,12 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
 - Priority: P0
 
 ## Requirement R-023 — Submit
-- Description: Student submits or timer expires → auto-submit. Graded immediately; result shown.
+- Description: Student submits or timer expires → auto-submit. Graded immediately; the result is shown only when the event's results visibility allows it.
 - Priority: P0
+
+## Requirement R-024 - In-exam calculator
+- Description: A client-only calculator is available from the Runner header and mobile bar. It supports digits, decimal, clear, delete, percent, square root, add, subtract, multiply and divide; it never calls the API.
+- Priority: P1
 
 ## Phase 4 — Proctoring
 
@@ -159,11 +163,11 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
 - Priority: P0
 
 ## Requirement R-031 — Screen recording
-- Description: MediaRecorder captures screen during exam; chunks uploaded every ~10s to server disk (raw, no transcoding). Upload failures retry with backoff. Missing-chunk gaps are tolerated and logged. A recording that stops without the student stopping it is a Tier-A `recording_revoked` event.
-- Priority: P0
+- Description: **Disabled/superseded.** Active MediaRecorder capture, chunk upload and recording review are removed. Existing `recordings` rows/files are retained for data preservation; `recording_revoked` remains an accepted historical integrity kind.
+- Priority: P0 (historical)
 
 ## Requirement R-032 — Live proctor dashboard
-- Description: Staff sees live sessions: student identity, current question, warning count, recording heartbeat, event log. Actions: send message, force-submit, lock session, flag student.
+- Description: Staff sees live sessions: student identity, current question, warning count, event log. Actions: send message, force-submit, lock session, flag student.
 - Priority: P0
 
 ## Requirement R-033 — Locked exam state
@@ -185,7 +189,7 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
 ## Phase 5 — Results & Flags
 
 ## Requirement R-040 — MCQ grading
-- Description: Auto-grade on submit: correct choice per variant. Score + per-section breakdown shown to student.
+- Description: Auto-grade on submit using the paper's frozen option order; score + per-section breakdown are stored. Student visibility is `immediate`, `after_all_submitted`, `manual` (admin publish with expiry) or `never`; admins retain access.
 - Priority: P0
 
 ## Requirement R-041 — Feedback
@@ -207,8 +211,8 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
 - Priority: P0
 
 ## Requirement R-051 — Recording review
-- Description: Admin can list and play back stored recordings per student.
-- Priority: P1
+- Description: **Disabled/superseded.** Recording review routes and the admin Recordings page are removed; stored data is retained but not served.
+- Priority: P1 (historical)
 
 ## Requirement R-052 — Flag + ticket management
 - Description: List/resolve flags and tickets in admin UI.
@@ -235,7 +239,7 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
   lockdown agent is now designed (`Brain/LockdownAgent.md`, R-034) and scheduled
   for Phase 2. Phase 1 stays website-only; the agent is not built yet.
 - No intranet requirement, no IP allowlist in Phase 1 (deferred by user).
-- Raw MediaRecorder (no ffmpeg/transcoding).
+- Screen recording is disabled; the legacy table/files are retained but not served.
 - Paper generated at exam start (not pre-generated).
 - Coding round excluded from Phase 1.
 - The Tier-B strike budget is shared across all warning kinds (one budget of

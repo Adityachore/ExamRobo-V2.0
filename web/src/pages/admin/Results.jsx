@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Download, Search, Target, Trophy } from 'luc
 import { api } from '../../lib/api.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { fmtDateTime } from '../../lib/format.js';
-import { Badge, Banner, Button, Card, EmptyState, Input, PageHeader, TableSkeleton, TableWrap, Tabs, Td, Th, useToast } from '../../components/ui.jsx';
+import { Badge, Banner, Button, Card, EmptyState, Input, PageHeader, Select, TableSkeleton, TableWrap, Tabs, Td, Th, useToast } from '../../components/ui.jsx';
 import { EventSelect } from '../../components/admin.jsx';
 
 // A thin bar: how much of the bucket was answered right.
@@ -30,6 +30,9 @@ export default function Results() {
   const [open, setOpen] = useState(new Set());
   const [exporting, setExporting] = useState(false);
   const [exportErr, setExportErr] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [publishErr, setPublishErr] = useState('');
+  const [expiry, setExpiry] = useState('7d');
   const [view, setView] = useState('skills');
 
   const rows = useMemo(() => (data?.results || []).filter((r) => !q || r.name.toLowerCase().includes(q.toLowerCase()) || r.email.includes(q.toLowerCase())), [data, q]);
@@ -58,6 +61,36 @@ export default function Results() {
     } catch (e) { setExportErr(`Competency export failed. ${e.message}`); } finally { setExporting(false); }
   };
 
+  const selectedEvent = (events.data?.events || []).find((event) => event.id === eventId) || null;
+  const manual = selectedEvent?.results_visibility === 'manual';
+  const published = !!selectedEvent?.results_published;
+  const expired = !!selectedEvent?.results_expires_at && Date.parse(selectedEvent.results_expires_at) <= Date.now();
+
+  const resultAction = async (action) => {
+    if (!selectedEvent) return;
+    setPublishing(true);
+    setPublishErr('');
+    try {
+      const suffix = action === 'publish' ? 'publish-results' : `results/${action}`;
+      await api(`/admin/events/${selectedEvent.id}/${suffix}`, {
+        method: 'POST',
+        role: 'admin',
+        body: action === 'unpublish' ? {} : { preset: expiry },
+      });
+      await events.reload();
+      await reload();
+      toast({
+        publish: 'Results published.',
+        extend: 'Result window extended.',
+        unpublish: 'Results hidden again.',
+      }[action]);
+    } catch (e) {
+      setPublishErr(e.message);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const cohort = analysis.data;
   const cohortRows = view === 'skills' ? cohort?.skills || [] : cohort?.difficulties || [];
 
@@ -66,6 +99,61 @@ export default function Results() {
       <PageHeader title="Results" description="Ranking and scores are calculated by the server."
         actions={<>{events.data && <EventSelect events={events.data.events} value={eventId} onChange={setEventId} allLabel="All events" />}<Button variant="secondary" onClick={exportCsv} loading={exporting}><Download size={14} />Export CSV</Button></>} />
       {exportErr && <Banner tone="error" className="mb-3">{exportErr}</Banner>}
+
+      {eventId && selectedEvent && (
+        <Card className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">Student results</p>
+                <Badge tone={!manual ? 'neutral' : published && !expired ? 'ok' : 'warn'}>
+                  {!manual
+                    ? { immediate: 'Immediate', after_all_submitted: 'After all submit', never: 'Hidden' }[selectedEvent.results_visibility]
+                    : expired
+                      ? 'Expired'
+                      : published
+                        ? 'Published'
+                        : 'Hidden'}
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {!manual
+                  ? {
+                    immediate: 'Students see their score as soon as they submit.',
+                    after_all_submitted: 'Students see their score after every paper is submitted.',
+                    never: 'Students never see their score. Admins can still export it.',
+                  }[selectedEvent.results_visibility]
+                  : published
+                    ? expired
+                      ? `The result window closed ${fmtDateTime(selectedEvent.results_expires_at)}. Extend it or unpublish.`
+                      : `Students can view their score until ${fmtDateTime(selectedEvent.results_expires_at)}.`
+                    : 'Publish once every paper is submitted, then choose how long students can view it.'}
+              </p>
+            </div>
+            {manual && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Select aria-label="Result window" value={expiry} onChange={(e) => setExpiry(e.target.value)} className="h-9 w-40 text-sm">
+                  <option value="1h">1 hour</option>
+                  <option value="6h">6 hours</option>
+                  <option value="1d">1 day</option>
+                  <option value="7d">7 days</option>
+                  <option value="14d">14 days</option>
+                  <option value="30d">30 days</option>
+                </Select>
+                {!published ? (
+                  <Button onClick={() => resultAction('publish')} loading={publishing}>Publish results</Button>
+                ) : (
+                  <>
+                    <Button variant="secondary" onClick={() => resultAction('extend')} loading={publishing}>Extend</Button>
+                    <Button variant="ghost" onClick={() => resultAction('unpublish')} loading={publishing}>Unpublish</Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {publishErr && <div className="px-4 pb-4"><Banner tone="error">{publishErr}</Banner></div>}
+        </Card>
+      )}
 
       {/* What the exam measured, across everyone who submitted it. */}
       <Card className="mb-4">

@@ -19,6 +19,7 @@ INSERT INTO skills (code, name, category, description) VALUES
   ('logical_reasoning', 'Logical Reasoning', 'Logic', 'Deductive and inductive argument.'),
   ('analytical_reasoning', 'Analytical Reasoning', 'Logic', 'Breaking a problem into parts and ordering them.'),
   ('pattern_recognition', 'Pattern Recognition', 'Logic', 'Sequences, series and hidden rules.'),
+  ('grammar_usage', 'Grammar & Usage', 'Grammar', 'Sentence structure, punctuation and correct usage.'),
   ('html_css', 'HTML & CSS', 'Frontend', 'Markup, the box model, layout and the cascade.'),
   ('javascript_core', 'JavaScript Fundamentals', 'Frontend', 'The language itself: types, scope, promises and the event loop.'),
   ('react_frontend', 'React & Component Design', 'Frontend', 'Components, state and rendering.'),
@@ -57,5 +58,7 @@ INSERT INTO skills (code, name, category, description) VALUES
   ('llm_integration', 'LLM Integration', 'LLM', 'Using a language model as a component in a product.'),
   ('security_fundamentals', 'Security Fundamentals', 'Cyber Security', 'Core threats, controls and secure defaults.'),
   ('devops_pipelines', 'DevOps Pipelines', 'DevOps', 'Build, test, release and operate software.'),
-  ('field_marketing', 'Field Marketing', 'On-Field Marketing', 'Events, local campaigns and direct customer contact.')
+  ('field_marketing', 'Field Marketing', 'On-Field Marketing', 'Events, local campaigns and direct customer contact.'),
+  ('business_analysis', 'Business Analysis', 'Business & Data Analyst', 'Requirements, processes and business decisions.'),
+  ('data_analysis', 'Data Analysis', 'Business & Data Analyst', 'Cleaning, exploring and explaining data.')
 ON CONFLICT (code) DO NOTHING;
