@@ -288,9 +288,46 @@ Why these lines matter:
 - Keep `Host $host`, or the SEB hash changes and every request fails.
 - On Cloudflare, set SSL/TLS mode to **Full (strict)** and do not enable
   "Under Attack" during an exam (it adds a challenge page).
+- Cloudflare WebSockets are on by default; keep them on, or the proctor channel
+  and the live dashboard fall back to polling.
+
+### Origin behind an existing host proxy
+
+When the host already has nginx/Caddy terminating TLS in front of
+`127.0.0.1:8083`, that proxy is the one Cloudflare talks to. Keep the container
+`web/nginx.conf` as it is and make the host proxy pass the two headers it reads:
+
+```nginx
+location / {
+  proxy_pass http://127.0.0.1:8083;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_read_timeout 300s;
+}
+
+location /ws {
+  proxy_pass http://127.0.0.1:8083;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+  proxy_read_timeout 3600s;
+}
+```
+
+`TRUST_PROXY=1` is still correct: Express only sees the container nginx, and
+that nginx already rewrites `X-Forwarded-For` from `CF-Connecting-IP`. Do not
+raise it to 2, or Express starts trusting the client's own header.
 
 Test: `curl -I https://exam.example.com/`,
 `curl https://exam.example.com/api/health`, then sign in through the browser.
+Check `https://exam.example.com/api/health` from **outside** Cloudflare as well:
+the origin ports must be closed to everything except Cloudflare's ranges.
 
 ## 9. Safe Exam Browser (only when required)
 

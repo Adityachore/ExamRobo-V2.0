@@ -28,11 +28,6 @@ export const INTEGRITY_KINDS = {
     label: 'Screenshot key pressed',
     reason: 'A screenshot key (PrintScreen) was pressed during the exam.',
   },
-  recording_revoked: {
-    tier: TIERS.WARN,
-    label: 'Screen recording stopped',
-    reason: 'The screen recording was stopped during the exam.',
-  },
   tab_blur: {
     tier: TIERS.WARN,
     label: 'Left the exam tab',
@@ -81,11 +76,6 @@ export const INTEGRITY_KINDS = {
     label: 'Developer tools suspected',
     reason: 'Developer tools appear to be open.',
   },
-  share_surface: {
-    tier: TIERS.LOG,
-    label: 'Screen sharing scope',
-    reason: 'The exam was shared as a single window instead of the entire screen.',
-  },
   // The Windows / macOS key. The operating system consumes the snipping-tool
   // chord (Win+Shift+S) before the page ever sees it, so this bare key press
   // is the only trace of it that a web page can produce. Recorded for the
@@ -108,6 +98,13 @@ export const REPORTABLE_KINDS = Object.keys(INTEGRITY_KINDS);
 
 // Detected by the server, never reported by the browser.
 export const SERVER_ONLY_KINDS = new Set(['second_window', 'second_session', 'network_gap']);
+
+// One user action can produce several different signals. Switching away with
+// Alt-Tab blurs the window, leaves fullscreen, and can change the display
+// geometry - all within a second. They are the same incident and must cost one
+// warning, not one per detector.
+export const INCIDENT_KINDS = ['tab_blur', 'fullscreen_exit', 'display_change'];
+const INCIDENT_WINDOW_MS = 4000;
 
 // The kinds a browser may report.
 export const CLIENT_REPORTABLE_KINDS = REPORTABLE_KINDS.filter((kind) => !SERVER_ONLY_KINDS.has(kind));
@@ -241,18 +238,22 @@ export async function recordViolation(paper, kind, detail = '', options = {}) {
       return rows[0].n;
     };
 
-    // One fullscreen exit is one incident, however many detectors saw it.
+    // The exam is not fullscreen from now on. The heartbeat carries the
+    // fullscreen state, so the next heartbeat must not count this again.
     if (kind === 'fullscreen_exit') {
+      await client.query(`UPDATE papers SET fullscreen_state = false WHERE id = $1`, [paper.id]);
+    }
+
+    // One incident is one warning, however many detectors (or kinds) saw it:
+    // the client's blur/fullscreen observers and the server heartbeat.
+    if (INCIDENT_KINDS.includes(kind)) {
       const { rows: recent } = await client.query(
         `SELECT 1 FROM warnings
-          WHERE paper_id = $1 AND kind = $2
-            AND created_at > now() - interval '10 seconds'
+          WHERE paper_id = $1 AND kind = ANY($2::text[])
+            AND created_at > now() - ($3::int * interval '1 millisecond')
           LIMIT 1`,
-        [paper.id, kind],
+        [paper.id, INCIDENT_KINDS, INCIDENT_WINDOW_MS],
       );
-      // The exam is not fullscreen from now on. The heartbeat carries the
-      // fullscreen state, so the next heartbeat must not count this again.
-      await client.query(`UPDATE papers SET fullscreen_state = false WHERE id = $1`, [paper.id]);
       if (recent.length) return { duplicate: true, warnings: await count(), paper: locked };
     }
 

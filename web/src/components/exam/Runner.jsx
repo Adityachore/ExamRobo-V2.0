@@ -5,7 +5,7 @@ import { useIntegrity } from '../../hooks/useIntegrity.js';
 import { KIND_LABELS, detectFullscreen } from '../../lib/integrity.js';
 import { ConnectionBadge } from '../ConnectionBadge.jsx';
 import { Badge, Banner, Button, Logo, Modal, Spinner, cx } from '../ui.jsx';
-import { AnswerOption, AutosaveChip, ExamCountdown, FullscreenBlocker, ProctorWarningBanner, QuestionNavigator, QuestionNavigatorPanel, SectionCountdown, SubmitDialog } from './parts.jsx';
+import { AnswerOption, AutosaveChip, ExamCountdown, FullscreenBlocker, ProctorWarningBanner, QuestionNavigator, QuestionNavigatorPanel, SectionRail, SubmitDialog } from './parts.jsx';
 import Calculator from './Calculator.jsx';
 
 const queueKey = (paperId) => (paperId ? `examrobo:answers:${paperId}` : null);
@@ -125,8 +125,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
 
   /* ---- go to result once the server confirms submission ---- */
   const goResult = useCallback(async () => {
-    let tries = 0;
-    for (;;) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       try {
         await api('/exam/result', { role: 'student' });
         onDone();
@@ -145,8 +144,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
           return;
         }
         if (e.status === 409 && e.data?.code === 'active') {
-          tries += 1;
-          if (tries > 6) { // server says still active -> our clock was wrong; resume
+          if (attempt >= 6) { // server says still active -> our clock was wrong; resume
             try {
               const r = await api('/exam/snapshot', { method: 'POST', role: 'student', body: { current_index: indexRef.current } });
               setEndsAt(r.ends_at); setServerTime(r.server_time);
@@ -160,6 +158,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
         await new Promise((r) => setTimeout(r, 1000));
       }
     }
+    setResultError('We could not confirm your submission. Your answers are saved on the server; check your connection and reload this page.');
   }, [onDone]);
 
   const lock = useCallback((msg) => {
@@ -414,10 +413,15 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
     // The banner shows the policy label, not the raw detail the guard
     // produced ("Blocked copy."). The detail is for the proctor log.
     const label = KIND_LABELS[kind] || reason || kind;
+    // One logical signal, one server row. The id is generated once and reused
+    // on every retry, so a lost response can never cost the student two
+    // warnings (schema: unique (paper_id, client_event_id)).
+    const clientEventId = globalThis.crypto?.randomUUID?.()
+      || `evt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setWarning((w) => ({ count: w?.count ?? warnings, max: maxWarnings, reason: label, final: false, pending: true }));
     for (let attempt = 0; attempt < 4; attempt++) {
       try {
-        const r = await api('/exam/event', { method: 'POST', role: 'student', body: { kind, detail: reason || '' } });
+        const r = await api('/exam/event', { method: 'POST', role: 'student', body: { kind, detail: reason || '', client_event_id: clientEventId } });
         setWarnings(r.warnings);
         setWarning({ count: r.warnings, max: r.max_warnings, reason: label, final: r.submitted, locked: r.locked });
         if (r.locked) {
@@ -664,6 +668,11 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
       </div>
 
       <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-4 sm:px-6 sm:py-6">
+        <div className="mb-3">
+          <SectionRail sections={sectionStats} current={qMeta?.section} timing={currentTiming} serverTime={serverTime}
+            onFinish={currentTiming?.state === 'active' ? () => { setFinishError(''); setFinishOpen(true); } : null}
+            onExpire={() => { if (qMeta) handleSectionTimeout(qMeta.section); }} advancing={finishing} />
+        </div>
         <div className="grid gap-5 lg:grid-cols-[210px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_300px]">
           <aside className="hidden lg:block">
             <div className="sticky top-24 rounded-xl border border-line bg-white p-3 shadow-card">
@@ -712,13 +721,7 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Question {index + 1} of {total}</p>
                     <p className="mt-0.5 text-xs text-muted">{question.section}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <SectionCountdown timing={currentTiming} serverTime={serverTime} onExpire={() => handleSectionTimeout(question.section)} />
-                    {currentTiming?.state === 'active' && (
-                      <Button size="sm" variant="secondary" onClick={() => { setFinishError(''); setFinishOpen(true); }}>Finish section</Button>
-                    )}
-                    <Badge tone={answers[question.id] !== undefined ? 'ok' : 'neutral'}>{answers[question.id] !== undefined ? 'Answered' : 'Not answered'}</Badge>
-                  </div>
+                  <Badge tone={answers[question.id] !== undefined ? 'ok' : 'neutral'}>{answers[question.id] !== undefined ? 'Answered' : 'Not answered'}</Badge>
                 </div>
                 {currentLocked && (
                   <div className="border-b border-line px-5 py-3 sm:px-8">
@@ -751,15 +754,15 @@ export default function Runner({ initial, onDone, onLocked, eventName, sebMode =
             <Button variant="secondary" onClick={() => goTo(index - 1)} disabled={index === 0 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Previous question">
               <ArrowLeft size={16} aria-hidden /><span className="hidden sm:inline">Previous</span>
             </Button>
-            <Button variant="secondary" onClick={() => goTo(index + 1)} disabled={index === total - 1 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Next question">
-              <span className="hidden sm:inline">Next</span><ArrowRight size={16} aria-hidden />
-            </Button>
             <Button variant="secondary" onClick={() => setNavOpen(true)} disabled={navigationDisabled} className="tnum shrink-0 px-2.5 xl:hidden sm:px-4" aria-label={`Open question navigator, ${answered} of ${total} answered`}>
               <LayoutGrid size={16} aria-hidden /><span className="hidden sm:inline">Questions</span><span className="text-muted">{answered}/{total}</span>
             </Button>
             <div className="flex-1" />
             <Button onClick={() => { setSubmitError(''); setSubmitOpen(true); }} disabled={locked} className="shrink-0 px-2.5 sm:px-4" aria-label="Review and submit exam">
               <ShieldCheck size={16} aria-hidden /><span className="hidden sm:inline">Review &amp; submit</span><span className="sm:hidden">Review</span>
+            </Button>
+            <Button variant="secondary" onClick={() => goTo(index + 1)} disabled={index === total - 1 || locked || blocked} className="shrink-0 px-2.5 sm:px-4" aria-label="Next question">
+              <span className="hidden sm:inline">Next</span><ArrowRight size={16} aria-hidden />
             </Button>
           </div>
         </div>

@@ -111,6 +111,46 @@ export function SectionCountdown({ timing, serverTime, onExpire }) {
 }
 
 /**
+ * The section strip above the question. It shows which section is open, what
+ * is already finished and what is still locked, the clock of the open section,
+ * and the early-finish action. The clock and the button stay in one place while
+ * the student moves between questions; the server remains the judge of time.
+ */
+export function SectionRail({ sections, current, timing, serverTime, onFinish, onExpire, advancing }) {
+  if (!sections?.length) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-2 shadow-card" aria-label="Exam sections">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        {sections.map((s) => {
+          const open = s.name === current;
+          const done = s.state === 'completed';
+          const expired = s.state === 'expired';
+          const locked = !done && !expired && (s.locked || s.state === 'locked');
+          return (
+            <span key={s.name} aria-current={open ? 'step' : undefined}
+              className={cx('inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs',
+                open ? 'border-primary bg-primary-soft text-ink'
+                  : done ? 'border-ok/30 bg-ok-soft/50 text-muted'
+                    : expired ? 'border-red-200 bg-danger-soft/60 text-danger-ink'
+                      : 'border-line bg-white text-muted')}>
+              {done ? <Check size={12} className="text-ok-ink" aria-hidden />
+                : expired ? <TriangleAlert size={12} aria-hidden />
+                  : <span className="tnum font-semibold">{s.first + 1}</span>}
+              <span className="font-medium">{s.name}</span>
+              <span className="tnum opacity-70">{done ? 'Done' : expired ? 'Time ended' : locked ? 'Locked' : `${s.answered}/${s.total}`}</span>
+            </span>
+          );
+        })}
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        {current && <SectionCountdown timing={timing} serverTime={serverTime} onExpire={onExpire} />}
+        {onFinish && <Button size="sm" variant="secondary" onClick={onFinish} loading={advancing}>Finish section</Button>}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Shown instead of the question while the exam is not in fullscreen. The
  * question is not rendered at all, so it cannot be read off the screen.
  */

@@ -47,6 +47,19 @@ test('an expired section is locked at zero remaining time', () => {
   assert.equal(view.remaining_sec, 0);
 });
 
+test('the deadline second is already locked: no extra time at ends_at', () => {
+  const view = sectionViewOf(
+    row({
+      started_at: '2026-01-01T11:55:00.000Z',
+      ends_at: '2026-01-01T12:00:00.000Z',
+    }),
+    now,
+  );
+  assert.equal(view.state, 'expired');
+  assert.equal(view.locked, true);
+  assert.equal(view.remaining_sec, 0);
+});
+
 test('a completed section stays completed even if its deadline has passed', () => {
   const view = sectionViewOf(
     row({

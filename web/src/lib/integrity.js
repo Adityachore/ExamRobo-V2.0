@@ -35,20 +35,18 @@ export const KIND_LABELS = {
   context_menu: 'The right-click menu is disabled during the exam.',
   print: 'Printing is disabled during the exam.',
   screenshot_key: 'A screenshot key was pressed during the exam.',
-  recording_revoked: 'The screen recording was stopped during the exam.',
   second_window: 'A second window of the exam was opened.',
   second_session: 'This exam was signed in from another device or browser.',
   display_change: 'The display configuration changed during the exam.',
   devtools: 'Developer tools appear to be open.',
-  share_surface: 'The exam was shared as a single window instead of the entire screen.',
   os_chord: 'An operating-system key combination was pressed during the exam.',
 };
 
 // Kinds that must always reach the server; they are warned about, never
 // throttled away.
-export const CRITICAL_KINDS = new Set(['screenshot_key', 'recording_revoked']);
+export const CRITICAL_KINDS = new Set(['screenshot_key']);
 // Kinds the server records but never penalises.
-export const LOG_KINDS = new Set(['devtools', 'share_surface', 'os_chord']);
+export const LOG_KINDS = new Set(['devtools', 'os_chord']);
 // A clipboard press is never throttled away: every press the student makes is
 // an attempt and an attempt is counted. The copy/cut/paste DOM event the
 // press would cause is deduplicated on its own (CLIPBOARD_DEDUPE_MS).

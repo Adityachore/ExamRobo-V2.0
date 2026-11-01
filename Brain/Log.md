@@ -1,5 +1,39 @@
 # ExamRobo Log
 
+## 2026-11-01 (exam-day issues batch, Phase 19)
+
+- **Parity first, then only three v6 ideas.** The current runner matched
+  `examrobo-3` everywhere except nine hook/lib files, so only the section rail,
+  the footer order and the countdown presentation came from `examrobo-6`.
+- **Section rail above the runner.** `SectionRail` shows the chips, the active
+  countdown and one Finish action; the finish dialog is shared with the card
+  footer. `sections.test.js` now pins the "no extra time at `ends_at`" boundary.
+- **One Alt-Tab, one strike.** Blur, fullscreen exit and display change are one
+  incident for 4 seconds; the warning retries reuse one `client_event_id`;
+  `recording_revoked` and `share_surface` are retired.
+- **Event delete became archive.** Migration 013 adds the deleted columns, the
+  default admin list hides archived events, `include_deleted=1` shows them under
+  Completed, edits are refused, and open papers are ended with `removed`. The
+  papers, results and recordings stay.
+- **Blank screen after submit**: root `ErrorBoundary`, Result shows a finishing
+  card after six bounded retries instead of redirecting, `goResult` is bounded
+  at 40 attempts. Root cause still needs a browser repro.
+- **50-student readiness**: `PG_POOL_MAX` (default 20), the k6 script rewritten
+  for the section API plus an admin polling scenario, and `npm run load` with a
+  one-line install hint. The 50-VU run is still not executed.
+- **Cloudflare runbook** now covers the existing host proxy: forward
+  `CF-Connecting-IP`/`X-Forwarded-Proto`, upgrade `/ws`, keep `TRUST_PROXY=1`,
+  Full (strict), origin closed to Cloudflare ranges.
+- **Bank import proven in a scratch DB**: 1100 questions, 11 domains x 100, no
+  duplicate source keys; the second run imports 0 and skips 1100. `seed:full`
+  truncates, so it is not the command for the current database.
+- **Live stack rebuilt and imported.** `api` and `web` rebuilt, migration 013
+  applied, `imported 1100, skipped 0`. The live DB now has 1110 active
+  questions over 13 domains (1100 imported + the 10 dev rows) and no event.
+- **Verified:** `npm run verify` -> preflight + 161 unit tests + web build +
+  **187/187 smoke assertions** PASS (with `VERIFY_PG_URL`/`VERIFY_REDIS_URL`
+  pointed at host port 5450/6379 because `server/.env` holds a stale password).
+
 ## 2026-11-01 (section-aware verification and live stack)
 
 - **`npm run verify` is fully green.** Four phases PASS: preflight, 158 unit

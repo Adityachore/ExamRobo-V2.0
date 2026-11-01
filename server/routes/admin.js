@@ -1,7 +1,5 @@
 ﻿import { Router } from 'express';
 import { wrapRouter } from '../middleware/async.js';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { q, withTransaction } from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { normalizeEventInput, unknownCategories } from '../services/event-config.js';
@@ -16,9 +14,6 @@ import { CATEGORIES } from '../services/competency.js';
 
 const router = Router();
 router.use(requireAdmin);
-
-const RECORDINGS_DIR =
-  process.env.RECORDINGS_DIR || path.join(process.cwd(), 'data', 'recordings');
 
 const emailRe = /^\S+@\S+\.\S+$/;
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,13 +38,6 @@ async function recordAction(db, req, action, detail = {}) {
       detail.detail || {},
     ],
   );
-}
-
-async function removeRecordingDirs(paperIds) {
-  for (const id of paperIds) {
-    if (!uuidRe.test(String(id))) continue;
-    await fs.rm(path.join(RECORDINGS_DIR, id), { recursive: true, force: true }).catch(() => {});
-  }
 }
 
 // The dashboard keys a session by "<event_id>:<email>".
@@ -83,8 +71,11 @@ async function eventWithCounts(id) {
 
 // ---------------------------------------------------------------- events
 
-router.get('/events', async (_req, res) => {
-  res.json({ events: await eventViews(), server_time: new Date().toISOString() });
+router.get('/events', async (req, res) => {
+  // Archived events are only returned when the Events page asks for them; every
+  // other admin screen keeps its picker free of deleted events.
+  const includeDeleted = req.query.include_deleted === '1';
+  res.json({ events: await eventViews({ includeDeleted }), server_time: new Date().toISOString() });
 });
 
 router.post('/events', async (req, res) => {
@@ -133,6 +124,7 @@ router.patch('/events/:id', async (req, res) => {
   const { rows } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
   const event = rows[0];
   if (!event) return res.status(404).json({ error: 'Event not found.' });
+  if (event.deleted_at) return res.status(409).json({ error: 'This event was deleted.', code: 'event_deleted' });
 
   const { rows: started } = await q(`SELECT count(*)::int AS n FROM papers WHERE event_id = $1`, [event.id]);
   if (started[0].n > 0) {
@@ -329,11 +321,18 @@ router.post('/events/:id/results', async (req, res) => {
   return unpublishResults(req, res, event);
 });
 
+// Deleting an event archives it. Papers, warnings, results and recordings are
+// kept for the audit trail; the event disappears from every active flow and is
+// listed under Completed with who deleted it, when, and why. A student who is
+// still writing is submitted with reason "removed" and told the event is gone.
 router.delete('/events/:id', async (req, res) => {
   if (!uuidRe.test(req.params.id)) return res.status(404).json({ error: 'Event not found.' });
   const { rows } = await q(`SELECT * FROM exam_events WHERE id = $1`, [req.params.id]);
   const event = rows[0];
   if (!event) return res.status(404).json({ error: 'Event not found.' });
+  if (event.deleted_at) {
+    return res.status(409).json({ error: 'This event was already deleted.', code: 'event_deleted' });
+  }
 
   if (String(req.body?.confirm_name || '') !== event.name) {
     return res.status(400).json({
@@ -342,33 +341,42 @@ router.delete('/events/:id', async (req, res) => {
     });
   }
 
+  const reason = String(req.body?.reason || '').trim().slice(0, 500) || null;
   const { rows: papers } = await q(
-    `SELECT id, email, status FROM papers WHERE event_id = $1`,
+    `SELECT * FROM papers WHERE event_id = $1`,
     [event.id],
   );
+  const active = papers.filter((paper) => paper.status === 'active');
 
   await withTransaction(async (client) => {
     await recordAction(client, req, 'event.delete', {
       event_id: event.id,
-      reason: String(req.body?.reason || '').trim() || null,
-      detail: { name: event.name, papers: papers.length },
+      reason,
+      detail: { name: event.name, papers: papers.length, active: active.length },
     });
-    await client.query(`DELETE FROM papers WHERE event_id = $1`, [event.id]);
-    await client.query(`DELETE FROM exam_events WHERE id = $1`, [event.id]);
+    await client.query(
+      `UPDATE exam_events
+          SET deleted_at = now(), deleted_by = $2, delete_reason = $3
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [event.id, req.user?.sub || 'admin', reason],
+    );
   });
 
-  await removeRecordingDirs(papers.map((p) => p.id));
-  for (const paper of papers) {
-    if (paper.status === 'active') {
-      toStudent(paper.email, {
-        type: 'removed',
-        reason: 'This event was deleted by the administrator.',
-        final: true,
-      });
+  // End the open attempts first, so no answer can land on an archived event.
+  for (const paper of active) {
+    try {
+      await submitPaper(paper, 'removed');
+    } catch (err) {
+      console.error('[admin] could not end paper after event delete:', err.message);
     }
+    toStudent(paper.email, {
+      type: 'removed',
+      reason: 'This event was deleted by the administrator.',
+      final: true,
+    });
   }
 
-  res.json({ ok: true, deleted: event.id });
+  res.json({ ok: true, deleted: event.id, archived: true, ended_papers: active.length });
 });
 
 

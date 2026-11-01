@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  INCIDENT_KINDS,
   INTEGRITY_KINDS,
   REPORTABLE_KINDS,
   SERVER_ONLY_KINDS,
@@ -32,17 +33,28 @@ test('every kind has a tier, a label and a reason', () => {
 
 test('the tiers are the ones the policy states', () => {
   const tier = (kind) => kindInfo(kind).tier;
-  // capture and recording are warnings for review, not instant endings
+  // capture attempts are warnings for review, not instant endings
   assert.equal(tier('screenshot_key'), TIERS.WARN);
-  assert.equal(tier('recording_revoked'), TIERS.WARN);
   // warnings accumulate and the last one submits the paper
   for (const k of ['tab_blur', 'fullscreen_exit', 'clipboard', 'context_menu', 'print', 'second_window', 'second_session', 'display_change']) {
     assert.equal(tier(k), TIERS.WARN, `${k} should warn`);
   }
   // recorded, never penalised
   assert.equal(tier('devtools'), TIERS.LOG);
-  assert.equal(tier('share_surface'), TIERS.LOG);
   assert.equal(tier('os_chord'), TIERS.LOG);
+});
+
+test('retired kinds are no longer registered or reportable', () => {
+  // The recorder was removed; these signals can never be produced again.
+  for (const kind of ['recording_revoked', 'share_surface']) {
+    assert.equal(isKnownKind(kind), false, `${kind} should be retired`);
+    assert.equal(isClientReportable(kind), false);
+  }
+});
+
+test('one incident covers blur, fullscreen exit and display change', () => {
+  assert.deepEqual([...INCIDENT_KINDS].sort(), ['display_change', 'fullscreen_exit', 'tab_blur']);
+  for (const kind of INCIDENT_KINDS) assert.equal(kindInfo(kind).tier, TIERS.WARN);
 });
 
 test('unknown kinds are rejected', () => {
@@ -64,7 +76,7 @@ test('a capture kind warns on the first occurrence', () => {
 });
 
 test('a capture kind still warns below the limit', () => {
-  assert.equal(evaluate('recording_revoked', 1).action, 'warn');
+  assert.equal(evaluate('screenshot_key', 1).action, 'warn');
 });
 
 test('the warning that reaches the limit submits the exam', () => {

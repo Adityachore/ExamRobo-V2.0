@@ -10,8 +10,14 @@ import { toAdmins, toStudent } from './live.js';
 export const MAX_WARNINGS = 3;
 export const SUBMIT_REASONS = ['student', 'time_expired', 'max_warnings', 'force_submit', 'integrity_lockout', 'removed'];
 
+// Student-facing lookups only: an archived event must behave as if it no longer
+// exists (404 on the landing payload and on the result). Admin flows query the
+// table directly so they can still show the Completed record.
 export async function loadEvent(eventId) {
-  const { rows } = await q(`SELECT * FROM exam_events WHERE id = $1`, [eventId]);
+  const { rows } = await q(
+    `SELECT * FROM exam_events WHERE id = $1 AND deleted_at IS NULL`,
+    [eventId],
+  );
   return rows[0] || null;
 }
 

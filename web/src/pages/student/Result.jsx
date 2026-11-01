@@ -12,6 +12,13 @@ const LABELS = ['Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
 
 function resultBlockedCopy(state) {
   if (!state) return null;
+  if (state.code === 'finishing') {
+    return {
+      tone: 'info',
+      title: 'Your submission is still being finalised.',
+      body: 'The server has your answers. This page will show your result as soon as grading finishes; reload it in a moment.',
+    };
+  }
   if (state.code === 'removed') {
     return {
       tone: 'error',
@@ -79,16 +86,32 @@ export default function Result() {
 
   useEffect(() => {
     let alive = true;
-    api('/exam/result', { role: 'student' }).then((r) => { if (alive) { setRes(r); setSent(r.feedback_sent); } })
-      .catch((e) => {
+    let tries = 0;
+    let timer = null;
+    // The submission can land a moment after the runner navigates here. Retry a
+    // few times instead of bouncing between /exam and /result, which used to
+    // leave the student on a blank page. After the budget, show a terminal card.
+    const load = async () => {
+      try {
+        const r = await api('/exam/result', { role: 'student' });
         if (!alive) return;
-        if (e.status === 409 && e.data?.code === 'active') nav('/exam', { replace: true });
-        else if (e.status === 409 && e.data?.code === 'results_not_published') setPending(e.data);
+        setRes(r); setSent(r.feedback_sent); setPending(null); setError(null);
+      } catch (e) {
+        if (!alive) return;
+        if (e.status === 409 && e.data?.code === 'active') {
+          tries += 1;
+          if (tries <= 6) { timer = setTimeout(load, 1000); return; }
+          setPending({ code: 'finishing' });
+          return;
+        }
+        if (e.status === 409 && e.data?.code === 'results_not_published') setPending(e.data);
         else if (e.status === 403 && ['results_unavailable', 'results_expired', 'removed'].includes(e.data?.code)) setPending(e.data);
         else setError(e.status === 404 ? 'No result found for this sign-in.' : e.message);
-      });
-    return () => { alive = false; };
-  }, [nav]);
+      }
+    };
+    load();
+    return () => { alive = false; if (timer) clearTimeout(timer); };
+  }, []);
 
   const sendFeedback = async (e) => {
     e.preventDefault();
@@ -103,6 +126,7 @@ export default function Result() {
   const celebrate = res && res.max > 0 && res.total / res.max >= 0.6 && (!res.submit_reason || res.submit_reason === 'student');
   const [hover, setHover] = useState(0);
   const blocked = resultBlockedCopy(pending);
+  const sections = Array.isArray(res?.sections) ? res.sections : [];
 
   return (
     <div className="relative isolate min-h-screen overflow-hidden">
@@ -117,7 +141,10 @@ export default function Result() {
               <p className="mt-1 text-sm text-muted">Your attempt has been recorded. Your score is not visible on this page.</p>
             </div>
             <Banner tone={blocked.tone} title={blocked.title}>{blocked.body}</Banner>
-            <div className="flex justify-end"><Button onClick={finish}>Back to sign in</Button></div>
+            <div className="flex flex-wrap justify-end gap-2">
+              {pending?.code === 'finishing' && <Button variant="secondary" onClick={() => window.location.reload()}>Reload</Button>}
+              <Button onClick={finish}>Back to sign in</Button>
+            </div>
           </div>
         )}
         {!res && !error && !pending && <div className="er-glass space-y-4 rounded-3xl p-6" aria-busy="true"><Skeleton className="h-6 w-48" /><Skeleton className="h-32" /></div>}
@@ -137,7 +164,7 @@ export default function Result() {
                 <div>
                   <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Section breakdown</h2>
                   <ul className="space-y-3">
-                    {res.sections.map((sec, idx) => (
+                    {sections.map((sec, idx) => (
                       <li key={sec.name}>
                         <div className="mb-1 flex justify-between text-sm"><span>{sec.name}</span><span className="tnum font-medium">{sec.score} / {sec.total}</span></div>
                         <div className="h-2 overflow-hidden rounded-full bg-slate-100"><motion.div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400" initial={{ width: 0 }} animate={{ width: `${sec.total ? (sec.score / sec.total) * 100 : 0}%` }} transition={{ duration: 1.1, delay: 0.5 + idx * 0.12, ease: [0.22, 1, 0.36, 1] }} /></div>

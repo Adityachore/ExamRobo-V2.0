@@ -1,34 +1,49 @@
 // ExamRobo load test (k6).
 //
 //   k6 run server/load/k6.js
-//   BASE_URL=http://localhost:8080 VUS=100 DURATION=5m k6 run server/load/k6.js
+//   BASE_URL=http://localhost:8080 VUS=50 DURATION=3m k6 run server/load/k6.js
 //
-// setup() creates a fresh event, uploads a roster for every VU and hands the
-// roster to the VUs. Each VU signs in, takes the exam, answers every question
-// and submits. Thresholds fail the run when latency or errors drift.
+// setup() creates a running event with section limits, uploads one roster row
+// per VU, and hands the roster plus an admin token to the scenarios.
+//
+// Two scenarios run together:
+//   students - sign in, take every section in order (finish between sections),
+//              submit, read the result.
+//   admins   - one operator polling the live dashboard and the event list, the
+//              way the screen behaves during an exam.
+//
+// The API accepts one answer per global question index and only in the active
+// section, so the script walks the manifest section by section instead of
+// answering everything at once.
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Counter, Rate, Trend } from 'k6/metrics';
+import { Counter, Trend } from 'k6/metrics';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:4000';
 const ADMIN_EMAIL = __ENV.ADMIN_EMAIL || 'admin@examrobo.dev';
 const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD || 'admin123';
 const VUS = Number(__ENV.VUS || 50);
+const ADMINS = Number(__ENV.ADMINS || 1);
 const DURATION = __ENV.DURATION || '3m';
 const THINK_TIME = Number(__ENV.THINK_TIME || 2);
+const QUESTIONS_PER_SECTION = Number(__ENV.QUESTIONS_PER_SECTION || 2);
+const SECTION_MINUTES = Number(__ENV.SECTION_MINUTES || 30);
+const CATEGORIES = ['Aptitude', 'Logic', 'Frontend'];
 
 const loginDuration = new Trend('login_duration', true);
 const startDuration = new Trend('start_duration', true);
 const questionDuration = new Trend('question_duration', true);
 const answerDuration = new Trend('answer_duration', true);
+const sectionDuration = new Trend('section_duration', true);
 const submitDuration = new Trend('submit_duration', true);
+const adminLiveDuration = new Trend('admin_live_duration', true);
 const loginErrors = new Counter('login_errors');
 const examErrors = new Counter('exam_errors');
 const answersRecorded = new Counter('answers_recorded');
 
 // One log line per failure kind, not per request: a broken run must stay
 // readable.
-const logged = { login: 0, start: 0, question: 0, answer: 0, submit: 0, result: 0, submitted: 0 };
+const logged = { login: 0, start: 0, question: 0, answer: 0, section: 0, submit: 0, result: 0, admin: 0 };
 function logOnce(kind, message) {
   if (logged[kind] >= 3) return;
   logged[kind] += 1;
@@ -47,6 +62,13 @@ export const options = {
       duration: DURATION,
       exec: 'takeExam',
     },
+    admins: {
+      executor: 'constant-vus',
+      vus: ADMINS,
+      duration: DURATION,
+      startTime: '5s',
+      exec: 'watchAdmin',
+    },
   },
   thresholds: {
     http_req_failed: ['rate<0.01'],
@@ -54,7 +76,9 @@ export const options = {
     start_duration: ['p(95)<3000'],
     question_duration: ['p(95)<1000'],
     answer_duration: ['p(95)<1000'],
+    section_duration: ['p(95)<2000'],
     submit_duration: ['p(95)<3000'],
+    admin_live_duration: ['p(95)<2000'],
   },
   discardResponseBodies: false,
 };
@@ -69,19 +93,29 @@ export function setup() {
     throw new Error(`admin login failed: ${admin.status} ${admin.body}`);
   }
   const token = admin.json('token');
+  const auth = { Authorization: `Bearer ${token}` };
 
   // The event is already running: a VU that arrives before `starts_at` gets
   // 409 "not started" and would only pollute the error rate.
-  const startsAt = new Date(Date.now() - 2000).toISOString();
+  const startsAt = new Date(Date.now() - 5000).toISOString();
+  const config = {};
+  const limits = {};
+  for (const category of CATEGORIES) {
+    config[category] = QUESTIONS_PER_SECTION;
+    limits[category] = SECTION_MINUTES;
+  }
+
   const eventRes = http.post(
     `${BASE_URL}/api/admin/events`,
     JSON.stringify({
       name: `k6 load run ${new Date().toISOString()}`,
       starts_at: startsAt,
-      duration_min: 120,
-      config: { Aptitude: 2, Logic: 2, Frontend: 2 },
+      duration_min: SECTION_MINUTES * CATEGORIES.length,
+      config,
+      section_limits: limits,
+      results_visibility: 'immediate',
     }),
-    jsonParams({ Authorization: `Bearer ${token}` }),
+    jsonParams(auth),
   );
   if (eventRes.status !== 201) {
     throw new Error(`event create failed: ${eventRes.status} ${eventRes.body}`);
@@ -102,19 +136,28 @@ export function setup() {
   const rosterRes = http.post(
     `${BASE_URL}/api/admin/events/${eventId}/roster`,
     JSON.stringify({ text: roster.join('\n') }),
-    jsonParams({ Authorization: `Bearer ${token}` }),
+    jsonParams(auth),
   );
-  if (rosterRes.status !== 200) {
+  if (rosterRes.status !== 201) {
     throw new Error(`roster upload failed: ${rosterRes.status} ${rosterRes.body}`);
   }
 
-  return { eventId, emails };
+  return { eventId, emails, adminToken: token };
 }
 
 // Module state lives as long as the VU does: a student hands the exam in
 // once, so the VU stops asking for a new paper (and stops burning the login
 // rate limit) after its first successful submission.
 const completed = new Set();
+
+function manifestSections(state) {
+  return (state.paper && state.paper.sections) || [];
+}
+
+function timingFor(state, name) {
+  const list = state.sections || [];
+  return list.find((section) => section.category === name) || null;
+}
 
 export function takeExam(data) {
   const email = data.emails[__VU - 1];
@@ -148,7 +191,6 @@ export function takeExam(data) {
   if (state.status === 'submitted') {
     // The student already handed in this exam - normal, not an error.
     completed.add(email);
-    logOnce('submitted', `${email} -> already submitted`);
     return;
   }
   if (state.status !== 'active') {
@@ -157,59 +199,87 @@ export function takeExam(data) {
     return;
   }
 
-  const sections = (state.paper && state.paper.sections) || [];
-  const questions = [];
+  const sections = manifestSections(state);
+  // Resume support: if this run picked up a paper that already has a section
+  // running, skip the sections that are finished and start at the active one.
+  let started = sections.some((section) => timingFor(state, section.name)?.state === 'active');
   for (const section of sections) {
-    for (const question of section.questions || []) {
-      questions.push(question);
+    const timing = timingFor(state, section.name);
+    if (!started) {
+      if (timing?.state !== 'active') continue;
+      started = true;
     }
-  }
+    if (timing?.state === 'completed') continue;
 
-  for (let i = 0; i < questions.length; i++) {
-    const question = questions[i];
-    // The start payload is a manifest; the stem and options arrive one
-    // question at a time.
-    const questionRes = http.get(`${BASE_URL}/api/exam/question/${i}`, { headers: auth });
-    questionDuration.add(questionRes.timings.duration);
-    let questionId = question.id;
-    if (check(questionRes, { 'question 200': (r) => r.status === 200 })) {
-      questionId = questionRes.json('question.id') || questionId;
-    } else {
-      examErrors.add(1);
-      logOnce('question', `${email} -> ${questionRes.status} ${String(questionRes.body).slice(0, 200)}`);
+    for (const question of section.questions || []) {
+      // The start payload is a manifest; the stem and options arrive one
+      // question at a time.
+      const questionRes = http.get(`${BASE_URL}/api/exam/question/${question.n}`, { headers: auth });
+      questionDuration.add(questionRes.timings.duration);
+      let questionId = question.id;
+      if (check(questionRes, { 'question 200': (r) => r.status === 200 })) {
+        questionId = questionRes.json('question.id') || questionId;
+      } else {
+        examErrors.add(1);
+        logOnce('question', `${email} -> ${questionRes.status} ${String(questionRes.body).slice(0, 200)}`);
+      }
+      const answer = http.post(
+        `${BASE_URL}/api/exam/answer`,
+        JSON.stringify({ question_id: questionId, choice: (question.n + 1) % 4, index: question.n }),
+        jsonParams(auth),
+      );
+      answerDuration.add(answer.timings.duration);
+      if (check(answer, { 'answer 200': (r) => r.status === 200 })) {
+        answersRecorded.add(1);
+      } else {
+        examErrors.add(1);
+        logOnce('answer', `${email} -> ${answer.status} ${String(answer.body).slice(0, 200)}`);
+      }
+      sleep(THINK_TIME);
     }
-    const choice = (questionId.charCodeAt(questionId.length - 1) + i) % 4;
-    const answer = http.post(
-      `${BASE_URL}/api/exam/answer`,
-      JSON.stringify({ question_id: questionId, choice, index: i }),
+
+    // Hand the section in so the next one starts. The last one submits.
+    const finish = http.post(
+      `${BASE_URL}/api/exam/section/finish`,
+      JSON.stringify({ category: section.name }),
       jsonParams(auth),
     );
-    answerDuration.add(answer.timings.duration);
-    if (check(answer, { 'answer 200': (r) => r.status === 200 })) {
-      answersRecorded.add(1);
-    } else {
+    sectionDuration.add(finish.timings.duration);
+    if (!check(finish, { 'section finish 200': (r) => r.status === 200 })) {
       examErrors.add(1);
-      logOnce('answer', `${email} -> ${answer.status} ${String(answer.body).slice(0, 200)}`);
+      logOnce('section', `${email} -> ${finish.status} ${String(finish.body).slice(0, 200)}`);
+      return;
     }
-    sleep(THINK_TIME);
+    if (finish.json('submitted')) break;
   }
 
-  const submit = http.post(`${BASE_URL}/api/exam/submit`, JSON.stringify({}), jsonParams(auth));
-  submitDuration.add(submit.timings.duration);
-  if (!check(submit, { 'submit 200': (r) => r.status === 200 })) {
-    logOnce('submit', `${email} -> ${submit.status} ${String(submit.body).slice(0, 200)}`);
-  } else {
-    completed.add(email);
-  }
-
-  // k6's http.get takes (url, params) - a third argument is dropped, so the
-  // Authorization header has to travel in the second one.
   const result = http.get(`${BASE_URL}/api/exam/result`, { headers: auth });
-  if (!check(result, { 'result 200': (r) => r.status === 200 })) {
+  submitDuration.add(result.timings.duration);
+  if (check(result, { 'result 200': (r) => r.status === 200 })) {
+    completed.add(email);
+  } else {
+    examErrors.add(1);
     logOnce('result', `${email} -> ${result.status} ${String(result.body).slice(0, 200)}`);
   }
 }
 
-export function teardown() {
-  console.log(`k6 run finished: ${answersRecorded.count} answers recorded`);
+export function watchAdmin(data) {
+  const auth = { Authorization: `Bearer ${data.adminToken}` };
+  const live = http.get(
+    `${BASE_URL}/api/admin/live?event_id=${data.eventId}&limit=50`,
+    { headers: auth },
+  );
+  adminLiveDuration.add(live.timings.duration);
+  if (!check(live, { 'admin live 200': (r) => r.status === 200 })) {
+    logOnce('admin', `live -> ${live.status} ${String(live.body).slice(0, 200)}`);
+  }
+  const events = http.get(`${BASE_URL}/api/admin/events`, { headers: auth });
+  if (!check(events, { 'admin events 200': (r) => r.status === 200 })) {
+    logOnce('admin', `events -> ${events.status} ${String(events.body).slice(0, 200)}`);
+  }
+  sleep(5);
+}
+
+export function teardown(data) {
+  console.log(`k6 run finished: ${answersRecorded.count} answers recorded for event ${data?.eventId || '?'}`);
 }

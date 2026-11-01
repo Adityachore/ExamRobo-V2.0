@@ -3,7 +3,7 @@ import { CalendarDays, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { fmtDateTime, fmtDuration } from '../../lib/format.js';
-import { Banner, Button, Card, ConfirmDialog, EmptyState, Field, Input, Modal, PageHeader, Select, TableSkeleton, TableWrap, Tabs, Td, Textarea, Th, useToast } from '../../components/ui.jsx';
+import { Badge, Banner, Button, Card, ConfirmDialog, EmptyState, Field, Input, Modal, PageHeader, Select, TableSkeleton, TableWrap, Tabs, Td, Textarea, Th, useToast } from '../../components/ui.jsx';
 import { RosterBadge, StatusBadge, eventStatus } from '../../components/admin.jsx';
 
 const toLocalInput = (iso) => {
@@ -281,6 +281,7 @@ function EventForm({ open, onClose, onSaved, categories, event }) {
 function DeleteEvent({ event, onClose, onDeleted }) {
   const toast = useToast();
   const [name, setName] = useState('');
+  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -288,12 +289,14 @@ function DeleteEvent({ event, onClose, onDeleted }) {
     if (name !== event.name) { setErr('Type the event name exactly.'); return; }
     setBusy(true); setErr('');
     try {
-      await api(`/admin/events/${event.id}`, {
+      const r = await api(`/admin/events/${event.id}`, {
         method: 'DELETE',
         role: 'admin',
-        body: { confirm_name: name },
+        body: { confirm_name: name, reason },
       });
-      toast('Event deleted.');
+      toast(r.ended_papers
+        ? `Event archived. ${r.ended_papers} active ${r.ended_papers === 1 ? 'attempt was' : 'attempts were'} ended.`
+        : 'Event archived.');
       onDeleted();
       onClose();
     } catch (ex) {
@@ -305,26 +308,31 @@ function DeleteEvent({ event, onClose, onDeleted }) {
 
   return (
     <ConfirmDialog open={!!event} onClose={onClose} onConfirm={remove} loading={busy} error={err}
-      danger confirmLabel="Delete event" title={`Delete "${event.name}"?`}
-      description="This permanently deletes the event, its roster, papers, results and recordings. Type the event name to confirm.">
+      danger confirmLabel="Archive event" title={`Delete "${event.name}"?`}
+      description="The event is archived, not destroyed: papers, results, warnings and recordings are kept. It disappears from Roster, Live and Results and is shown under Completed. Students who are still writing are signed out and their attempt is ended. Type the event name to confirm.">
       <Field label="Event name">
         {(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />}
+      </Field>
+      <Field label="Reason (optional)" hint="Stored with the event and shown in the Completed tab.">
+        {(p) => <Input {...p} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder="Why is this event being archived?" />}
       </Field>
     </ConfirmDialog>
   );
 }
 
 export default function Events() {
-  const { data, error, loading, reload } = useFetch('/admin/events');
+  const { data, error, loading, reload } = useFetch('/admin/events?include_deleted=1');
   const cats = useFetch('/bank/categories');
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState({ open: false, event: null });
   const [deleting, setDeleting] = useState(null);
 
-  const rows = useMemo(
-    () => (data?.events || []).filter((e) => filter === 'all' || eventStatus(e) === filter),
-    [data, filter],
-  );
+  // Archived events belong to Completed only. "All" and the active filters are
+  // for events that can still be worked on.
+  const rows = useMemo(() => (data?.events || []).filter((e) => {
+    if (e.deleted_at) return filter === 'completed';
+    return filter === 'all' || eventStatus(e) === filter;
+  }), [data, filter]);
 
   return (
     <>
@@ -349,7 +357,14 @@ export default function Events() {
                 const range = e.min_questions !== e.max_questions ? `${e.min_questions}-${e.max_questions}` : String(e.max_questions);
                 return (
                   <tr key={e.id}>
-                    <Td className="font-medium">{e.name}</Td>
+                    <Td className="font-medium">
+                      <span className="flex flex-wrap items-center gap-2">{e.name}{e.deleted_at && <Badge tone="danger">Deleted</Badge>}</span>
+                      {e.deleted_at && (
+                        <span className="mt-0.5 block text-xs font-normal text-muted">
+                          {fmtDateTime(e.deleted_at)}{e.deleted_by ? ` by ${e.deleted_by}` : ''}{e.delete_reason ? ` — ${e.delete_reason}` : ''}
+                        </span>
+                      )}
+                    </Td>
                     <Td className="tnum whitespace-nowrap">{fmtDateTime(e.starts_at)}</Td>
                     <Td className="tnum">{fmtDuration(e.duration_min)}</Td>
                     <Td>
@@ -361,13 +376,19 @@ export default function Events() {
                       )}
                     </Td>
                     <Td><div className="flex flex-col items-start gap-1"><RosterBadge ev={e} /><span className="tnum text-xs text-muted">{e.roster_count} students{e.roster_updated_at ? ` - ${fmtDateTime(e.roster_updated_at)}` : ''}</span></div></Td>
-                    <Td><StatusBadge status={eventStatus(e)} /></Td>
+                    <Td>{e.deleted_at ? <Badge tone="danger">Deleted</Badge> : <StatusBadge status={eventStatus(e)} />}</Td>
                     <Td>
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" aria-label={`Edit ${e.name}`} disabled={e.has_started}
-                          title={e.has_started ? 'Students have started this event; it can no longer be edited.' : 'Edit event'}
-                          onClick={() => setForm({ open: true, event: e })}><Pencil size={14} /></Button>
-                        <Button variant="ghost" size="sm" aria-label={`Delete ${e.name}`} onClick={() => setDeleting(e)}><Trash2 size={14} className="text-danger" /></Button>
+                        {e.deleted_at ? (
+                          <span className="px-2 text-xs text-muted">Archived</span>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="sm" aria-label={`Edit ${e.name}`} disabled={e.has_started}
+                              title={e.has_started ? 'Students have started this event; it can no longer be edited.' : 'Edit event'}
+                              onClick={() => setForm({ open: true, event: e })}><Pencil size={14} /></Button>
+                            <Button variant="ghost" size="sm" aria-label={`Delete ${e.name}`} onClick={() => setDeleting(e)}><Trash2 size={14} className="text-danger" /></Button>
+                          </>
+                        )}
                       </div>
                     </Td>
                   </tr>
@@ -377,7 +398,7 @@ export default function Events() {
           </TableWrap>
         )}
       </Card>
-      <p className="mt-3 text-xs text-muted">Events can be edited until the first student starts. Deleting an event is always available and removes its papers and recordings.</p>
+      <p className="mt-3 text-xs text-muted">Events can be edited until the first student starts. Deleting archives the event: papers, results and recordings are kept, and the archived record is listed under Completed.</p>
       {form.open && (
         <EventForm key={form.event?.id || 'new'} open={form.open} event={form.event}
           onClose={() => setForm({ open: false, event: null })} onSaved={reload}

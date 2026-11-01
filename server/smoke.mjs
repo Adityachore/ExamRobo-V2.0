@@ -193,11 +193,15 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   ok(keyed === 9, 'all 9 questions answered with the answer key');
 
   // warnings: the third warning submits, and the server enforces that.
+  // The blur and the fullscreen exit that an Alt-Tab produces together are one
+  // incident, not two strikes. Separate capture kinds still count one each.
   r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'tab_blur' } });
   ok(r.j.warnings === 1 && !r.j.submitted, 'warning 1');
   r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'fullscreen_exit' } });
+  ok(r.j.warnings === 1 && !r.j.submitted, 'the blur and the fullscreen exit are one incident');
+  r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'screenshot_key' } });
   ok(r.j.warnings === 2 && !r.j.submitted, 'warning 2');
-  r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'tab_blur' } });
+  r = await call('/exam/event', { m: 'POST', tok: stu, body: { kind: 'clipboard' } });
   ok(r.j.warnings === 3 && r.j.submitted === true, 'warning 3 submits the exam');
   r = await call('/exam/answer', { m: 'POST', tok: stu, body: { question_id: q0.id, choice: answerKey.get(q0.id) } });
   ok(r.s === 409, 'answers are rejected after the warning limit');
@@ -1002,6 +1006,66 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   ok(r.s === 200 && r.j.event.results_published === false, 'publication can be reversed');
   r = await call('/exam/result', { tok: stu });
   ok(r.s === 409 && r.j.code === 'results_not_published', 'unpublishing hides the result again');
+
+  /* ---------------------------------------------------- archiving an event */
+  // Deleting an event archives it: the papers are kept, the open attempts are
+  // ended, and the record stays visible in the Completed tab only.
+  r = await call('/admin/events', {
+    m: 'POST',
+    tok: adm,
+    body: {
+      name: 'Archive Me Run',
+      starts_at: new Date(Date.now() - 1000).toISOString(),
+      duration_min: 60,
+      config: { Aptitude: 1 },
+      section_limits: { Aptitude: 20 },
+    },
+  });
+  ok(r.s === 201, 'an event for the archive check is created');
+  const archiveEventId = r.j.event.id;
+  await call(`/admin/events/${archiveEventId}/roster`, {
+    m: 'POST',
+    tok: adm,
+    body: { text: 'archive@example.com, Archive Test' },
+  });
+  const arc = await login('archive@example.com');
+  r = await call('/exam/start', { m: 'POST', tok: arc });
+  ok(r.s === 200, 'the archive student starts');
+
+  r = await call(`/admin/events/${archiveEventId}`, {
+    m: 'DELETE',
+    tok: adm,
+    body: { confirm_name: 'Not The Name' },
+  });
+  ok(r.s === 400, 'archiving an event needs the exact name');
+  r = await call(`/admin/events/${archiveEventId}`, {
+    m: 'DELETE',
+    tok: adm,
+    body: { confirm_name: 'Archive Me Run', reason: 'Smoke archive' },
+  });
+  ok(
+    r.s === 200 && r.j.archived === true && r.j.ended_papers === 1,
+    'archiving ends the open attempts',
+  );
+
+  r = await call('/admin/events', { tok: adm });
+  ok(!r.j.events.some((e) => e.id === archiveEventId), 'an archived event leaves the active list');
+  r = await call('/admin/events?include_deleted=1', { tok: adm });
+  const archived = r.j.events.find((e) => e.id === archiveEventId);
+  ok(
+    archived?.deleted === true &&
+      archived.deleted_by === 'admin@examrobo.dev' &&
+      archived.delete_reason === 'Smoke archive',
+    'the archive keeps who deleted it and why',
+  );
+  r = await call(`/admin/events/${archiveEventId}`, {
+    m: 'PATCH',
+    tok: adm,
+    body: { name: 'Renamed After Archive' },
+  });
+  ok(r.s === 409 && r.j.code === 'event_deleted', 'an archived event can no longer be edited');
+  r = await call('/exam/start', { m: 'POST', tok: arc });
+  ok(r.s === 404, 'an archived event is closed to its students');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   await clearLockout(lockoutEmail);

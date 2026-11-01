@@ -149,16 +149,24 @@ export function eventViewOf(r) {
     results_published_by: r.results_published_by || null,
     results_expires_at: r.results_expires_at || null,
     created_at: r.created_at,
+    // A deleted event is archived, not destroyed: the admin can still see who
+    // deleted it, when, and why in the Completed tab.
+    deleted_at: r.deleted_at || null,
+    deleted_by: r.deleted_by || null,
+    delete_reason: r.delete_reason || null,
+    deleted: !!r.deleted_at,
   };
 }
 
-export async function eventViews() {
+export async function eventViews({ includeDeleted = false } = {}) {
   const { rows } = await q(
     `SELECT e.*,
             (SELECT count(*) FROM roster_emails r WHERE r.event_id = e.id AND r.removed_at IS NULL)::int AS roster_count,
             (SELECT count(*) FROM papers p WHERE p.event_id = e.id)::int AS paper_count
        FROM exam_events e
+      WHERE ($1::boolean OR e.deleted_at IS NULL)
       ORDER BY e.starts_at DESC`,
+    [includeDeleted],
   );
   return rows.map(eventViewOf);
 }

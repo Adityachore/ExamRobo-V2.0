@@ -267,12 +267,29 @@ Plan approved by the user; `Brain/` is the communication medium.
 | T-1505 | - | Align `README.md` and `DEPLOY.md` with the single port, env naming and Cloudflare prerequisite | reference-agent | T-1504 | [X] COMPLETED — `4676544` |
 | T-1506 | R-005,R-020 | Code fixes: seed `section_limits`, env-driven bcrypt rounds, legacy-recorder comment cleanup, option-order analytics regression test | senior-backend-engineer-agent | T-1505 | [X] COMPLETED — `8285b6f`; 158 unit tests, web build clean |
 | T-1507 | R-010 | Add `import-bank.mjs`: parse the 1100-question markdown, map domain/skill/difficulty, idempotent `--dry-run`/`--replace` | senior-backend-engineer-agent | T-1506 | [X] COMPLETED — dry run 1100 / 100-per-domain / 330-715-55 |
-| T-1508 | R-010 | Normalize `Cyber Security`/`Cybersecurity`, import the full bank, validate 1100 / 100-per-domain / 330-715-55 / 4 options | senior-backend-engineer-agent | T-1507 | [>] IN PROGRESS — migrations 011/012 applied in the live DB; importer committed (`00d8e5a`). Full import still pending: the stock seed event uses Aptitude/Logic, which are not bank domains, so it needs an event config on imported categories |
+| T-1508 | R-010 | Normalize `Cyber Security`/`Cybersecurity`, import the full bank, validate 1100 / 100-per-domain / 330-715-55 / 4 options | senior-backend-engineer-agent | T-1507 | [X] COMPLETED — live DB now holds 1110 active questions (1100 imported + 10 dev bank) across 13 domains; migrations 011-013 applied (2026-11-01) |
 | T-1509 | - | Full verification: `docker compose up -d --build`, migrate, seed, `npm run verify` (four phases PASS), web build | critique-agent | T-1508 | [X] COMPLETED — preflight, 158 unit tests, web build and 178/178 smoke assertions PASS on the seeded section-aware dataset; live API/web rebuilt and healthy at `http://127.0.0.1:8083`. Re-run after the T-1508 import |
 | T-1510 | R-020,R-040 | Browser click-through 320/390/tablet/1280: login, waiting, domain picker, sections, calculator, submit, result, admin CRUD | critique-agent | T-1509 | [>] IN PROGRESS — live stack seeded (event `333eaa54-7c1e-421a-b7a4-c89cf7fddb59`, starts 2026-11-01T16:02:48Z); click-through handed to the user |
 | T-1511 | - | Documentation sync: PRD/TRD/Schema/Flow/Design, `Start`, `Project`, `Project_Guide`, `compact`, rotate log if needed | memory-agent | T-1510 | [ ] PENDING |
 | T-1512 | - | Release: bump `Brain/VERSION` to v1.5.0, align package versions, merge `release/final` → `main`, push, tag `v1.5.0` | senior-devops-engineer-agent | T-1511 | [ ] PENDING |
 | T-1513 | - | Production cutover: fresh backup, scratch restore + bridge rehearsal, deploy, post-cutover smoke, rollback ready | senior-devops-engineer-agent | T-1512 | [B] BLOCKED — explicit user approval required |
+
+## Phase 19 — Exam-day issues batch (2026-11-01)
+
+The parity report first, then only the parts of `examrobo-6` worth adopting. The
+recorder, `module_minutes` and v6 `goResult` stay out (see `Brain/Not.md`).
+
+| ID | Req | Task | Agent | Depends On | Status |
+|---|---|---|---|---|---|
+| T-1514 | R-020 | Section rail above the runner: chips with answered counts, active countdown, one "Finish section" action; footer order Previous · Questions · Review & submit · Next. `SectionCountdown` moved out of the card | senior-frontend-engineer-agent | T-1509 | [X] COMPLETED — boundary test at `ends_at` added (`sections.test.js`) |
+| T-1515 | - | Blank screen after submit: root `ErrorBoundary`, Result retries six times then shows a finishing card, `goResult` bounded to 40 attempts, no `/exam` ↔ `/result` redirect loop | senior-frontend-engineer-agent | T-1509 | [X] COMPLETED — browser repro still pending (T-1521) |
+| T-1516 | R-030 | Warning audit: blur + fullscreen exit + display change are one incident (4s window), retired `recording_revoked`/`share_surface`, every report carries `client_event_id` on retries | senior-backend-engineer-agent | T-950 | [X] COMPLETED — registry test + smoke updated (one incident, then two capture kinds) |
+| T-1517 | R-006 | Event archive: migration 013 (`deleted_at`/`deleted_by`/`delete_reason`), default `GET /admin/events` hides archived, `include_deleted=1` shows them, `PATCH` refuses an archived event, `DELETE` ends open papers and keeps results | senior-backend-engineer-agent | T-1303 | [X] COMPLETED — 8 smoke assertions |
+| T-1518 | R-060 | Load safety for 50 students: section-aware k6 flow (roster 201, finish between sections, admin polling scenario), `PG_POOL_MAX` (default 20), `npm run load` wrapper with an install hint | performance-optimization-engineer-agent | T-1514,T-1517 | [X] COMPLETED (script) / [ ] PENDING (the 50-VU run) |
+| T-1519 | R-061 | Cloudflare runbook: origin behind an existing host proxy (headers, `/ws` upgrade, `TRUST_PROXY=1` stays, Full strict, closed origin) | senior-devops-engineer-agent | T-1504 | [X] COMPLETED |
+| T-1520 | R-010 | Import the 1100-question bank and prove it: scratch DB parses 1100 / 11 domains / 0 issues, second run imports 0 and skips 1100; live import after the rebuild | senior-backend-engineer-agent | T-1507,T-1508 | [X] COMPLETED — live: `imported 1100, skipped 0`, 1110 active questions; migration 013 applied and the new API/UI are healthy at `127.0.0.1:8083` |
+| T-1521 | - | Browser click-through of the four submit paths and the archived-event UI | critique-agent | T-1515,T-1517 | [ ] PENDING — needs a browser / the user |
+| T-1522 | - | Re-run `npm run verify` after the batch | critique-agent | T-1514..T-1520 | [X] COMPLETED — preflight, 161 unit tests, web build, 187/187 smoke assertions PASS |
 
 ## Phase 1.5 — Coding Round (deferred)
 

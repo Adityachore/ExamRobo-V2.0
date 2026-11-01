@@ -1,5 +1,53 @@
 # Project Issues & Technical Debt Log
 
+## Exam-day issues batch (Phase 19) — 2026-11-01
+
+Closed:
+
+- ~~**One Alt-Tab cost two strikes**~~ — a `tab_blur` and the `fullscreen_exit`
+  it causes arrived together and each counted. The three environment signals
+  (`tab_blur`, `fullscreen_exit`, `display_change`) are now one incident inside
+  a 4-second window; separate capture kinds still count one each. The smoke
+  pins it. → T-1516.
+- ~~**A retried warning could double-count**~~ — the client now sends one
+  `client_event_id` (`crypto.randomUUID`, timestamp fallback) on every retry of
+  the same signal; the partial unique index does the rest. → T-1516.
+- ~~**Two warning kinds were dead**~~ — `recording_revoked` (recorder removed)
+  and `share_surface` (no such signal) left the registry, the client labels and
+  the tests. → T-1516.
+- ~~**Deleting an event destroyed its papers**~~ — deletion now archives:
+  `deleted_at`/`deleted_by`/`delete_reason` (migration 013), archived events
+  leave the active list, remain under Completed with who/when/why, refuse edits,
+  and open attempts are ended with `removed`. → T-1517.
+- ~~**Blank screen after submit**~~ — mitigated, root cause still unproven: a
+  root `ErrorBoundary`, the Result page retries six times before showing a
+  "finishing" card instead of bouncing back to `/exam`, and `goResult` is
+  bounded at 40 attempts with a readable error. → T-1515.
+- ~~**The pg pool used the default 10**~~ — `PG_POOL_MAX` (default 20) leaves
+  headroom for 50 students plus the dashboard. → T-1518.
+- ~~**The k6 script described an older API**~~ — rewritten for `config` +
+  `section_limits`, roster 201, section-by-section answers, and an admin
+  polling scenario. → T-1518.
+
+Open:
+
+- ~~**The live database is the 10-question dev bank at migration 012**~~ —
+  migrations 011-013 are applied and the live import reports `imported 1100,
+  skipped 0`: 1110 active questions over 13 domains. `npm run seed:full`
+  **truncates** first; it is for a fresh install, never for this database.
+  → T-1508/T-1520.
+- **The live database has no exam event right now** (0 events, 0 papers). The
+  previous demo event was removed before this batch; create one on imported
+  categories (e.g. Frontend / Backend / AI) before the next click-through.
+- **`server/.env` has a stale database password.** The stack's own password
+  works, so `npm run verify` must be given `VERIFY_PG_URL`/`VERIFY_REDIS_URL`
+  (host port 5450 / 6379) for this machine; the preflight reports the auth
+  failure as "timed out", which is misleading but honest about the phase being
+  skipped. → T-1522.
+- **The 50-VU run has not been executed** (`k6` is not installed on this
+  machine). → T-1518.
+- **No browser repro of the four submit paths yet.** → T-1521.
+
 ## Final release (Phase 18) — 2026-11-01
 
 Open items for the canonical v1.5.0 release. Strike through as each closes.
