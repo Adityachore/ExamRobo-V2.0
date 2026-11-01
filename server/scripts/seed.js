@@ -150,7 +150,8 @@ export async function seedDatabase({
   // taxonomy has to come back before the questions can point at it.
   await applyTaxonomy();
 
-  const hash = await bcrypt.hash(ADMIN.password, 10);
+  const rounds = Number(process.env.BCRYPT_ROUNDS || 10);
+  const hash = await bcrypt.hash(ADMIN.password, rounds);
   const { rows: admins } = await q(
     `INSERT INTO admins (email, password_hash, name) VALUES ($1,$2,$3)
      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
@@ -180,10 +181,31 @@ export async function seedDatabase({
   }
 
   const startsAt = new Date(Date.now() + offsetSec * 1000);
+  // A seeded paper must exercise the sequential section engine, so the event
+  // gets one limit per category. The default 60-minute window is split evenly;
+  // a legacy event without limits falls back to a single deadline.
+  const categories = Object.keys(config);
+  const baseMinutes = Math.max(1, Math.floor(durationMin / Math.max(1, categories.length)));
+  const remainder = durationMin % Math.max(1, categories.length);
+  const sectionLimits = Object.fromEntries(
+    categories.map((category, index) => [
+      category,
+      Math.max(1, baseMinutes + (index < remainder ? 1 : 0)),
+    ]),
+  );
   const { rows: events } = await q(
-    `INSERT INTO exam_events (name, starts_at, duration_min, categories, question_counts, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [eventName, startsAt, durationMin, Object.keys(config), config, admins[0].id],
+    `INSERT INTO exam_events
+       (name, starts_at, duration_min, categories, question_counts, section_limits, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [
+      eventName,
+      startsAt,
+      durationMin,
+      categories,
+      config,
+      sectionLimits,
+      admins[0].id,
+    ],
   );
   const event = events[0];
 

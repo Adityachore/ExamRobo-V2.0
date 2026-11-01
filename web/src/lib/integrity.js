@@ -7,7 +7,7 @@
 // what it saw.
 //
 // Three rules shape this file:
-//   1. A capture/recording kind is never throttled away. A swallowed signal
+//   1. A capture kind is never throttled away. A swallowed signal
 //      would be a free pass.
 //   2. The same kind is throttled per kind, not globally. One user action can
 //      fire several events (blur + visibilitychange + fullscreenchange) and
@@ -15,7 +15,6 @@
 //      blocked by an unrelated clipboard event that happened a second earlier.
 //   3. One incident is one warning. Leaving fullscreen is seen by the client
 //      AND by the server heartbeat; both must not count it twice.
-import { api } from './api.js';
 import {
   clipboardAction,
   clipboardShortcut,
@@ -79,44 +78,6 @@ function emit(kind, detail = '') {
   try { reporter?.(kind, detail); } catch { /* a broken reporter must not break the page */ }
 }
 
-/**
- * Report a violation that the guards did not produce - the recorder losing its
- * capture track, for example. Uses the active reporter when the runner is
- * mounted, otherwise posts straight to the server.
- */
-export async function reportViolation(kind, detail = '') {
-  if (reporter) return reporter(kind, detail);
-  try {
-    return await api('/exam/event', { method: 'POST', role: 'student', body: { kind, detail } });
-  } catch {
-    return null; // no exam session yet, or the network is down
-  }
-}
-
-/**
- * Wrap getDisplayMedia so the browser tells us what surface was shared.
- * The exam requires the ENTIRE screen; a single window means the student can
- * hide other applications behind the exam. Installed once, before the
- * recorder asks for the screen.
- */
-export function watchDisplaySurface() {
-  const md = navigator.mediaDevices;
-  if (!md?.getDisplayMedia || md.__examroboWrapped) return;
-  const original = md.getDisplayMedia.bind(md);
-  md.getDisplayMedia = async (constraints) => {
-    const stream = await original(constraints);
-    const track = stream?.getVideoTracks?.()[0];
-    const surface = track?.getSettings?.().displaySurface;
-    if (surface && surface !== 'monitor') {
-      emit('share_surface', `Shared surface: ${surface}.`);
-    } else if (!surface) {
-      emit('share_surface', 'The shared surface could not be determined.');
-    }
-    return stream;
-  };
-  md.__examroboWrapped = true;
-}
-
 // Best effort only: the OS owns the clipboard and the browser may not be
 // allowed to write to it. The violation is reported either way.
 async function clearClipboard() {
@@ -138,7 +99,6 @@ async function clearClipboard() {
  */
 export function installIntegrityGuards({ onViolation, onFullscreenChange } = {}) {
   const restore = setReporter(onViolation);
-  watchDisplaySurface();
 
   const offs = [];
   const on = (target, type, fn, opts) => {
@@ -224,7 +184,7 @@ export function installIntegrityGuards({ onViolation, onFullscreenChange } = {})
   // --- display configuration --------------------------------------------
   // Best effort: browsers do not expose the number of attached screens, so
   // this catches a resolution change or a resized window, not every second
-  // monitor. The screen recording is the real evidence.
+  // monitor. The server-side heartbeat is the backstop.
   const geometry = () => {
     const s = window.screen || {};
     return [s.width, s.height, s.availWidth, s.availHeight].join('x');

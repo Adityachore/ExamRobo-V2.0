@@ -26,6 +26,10 @@ export const UNTAGGED = 'Not tagged';
 // re-tagged or a skill that was renamed afterwards cannot change the numbers
 // of an exam that already ran. A variant that a paper uses cannot be deleted,
 // so the key is always there.
+//
+// The answer is stored as the DISPLAY index the student clicked; option_orders
+// maps that back to the authored index. `server/test/grading.test.js` pins the
+// same rule for the grader; keep the two expressions identical.
 const COMPETENCY_ROWS = `
   SELECT pq.paper_id, pq.qno, pq.skill_code, pq.difficulty,
          s.name AS skill_name, s.category AS skill_category,
