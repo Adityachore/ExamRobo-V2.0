@@ -147,22 +147,48 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
 
   // Answer every question with the correct option (the admin bank is the only
   // place the key exists) and prove the server grades it as a full score.
+  //
+  // The paper is sectioned and only the active section accepts answers, so a
+  // section is answered and then finished to unlock the next. The last section
+  // is left open for the warning flow below, which submits the paper. The bank
+  // gives the authored correct index; the answer endpoint expects the
+  // *displayed* index, so map it through the paper's frozen option order.
   const bank = (await call('/bank/questions', { tok: adm })).j;
   const answerKey = new Map();
   for (const question of bank.questions || []) {
     for (const v of question.variants || []) answerKey.set(v.id, v.correct);
   }
-  const paperQuestions = r.j.paper.sections.flatMap((s) => s.questions);
+  const paperSections = r.j.paper.sections;
+  const paperQuestions = paperSections.flatMap((s) => s.questions);
+  const { rows: orderRows } = await pool.query(
+    `SELECT option_orders FROM papers WHERE event_id = $1 AND email = 'student@example.com'`,
+    [eventId],
+  );
+  const optionOrders = orderRows[0]?.option_orders || [];
   let keyed = 0;
-  for (let i = 0; i < paperQuestions.length; i++) {
-    const correct = answerKey.get(paperQuestions[i].id);
-    if (correct === undefined) continue;
-    const a = await call('/exam/answer', {
-      m: 'POST',
-      tok: stu,
-      body: { question_id: paperQuestions[i].id, choice: correct, index: i },
-    });
-    if (a.s === 200) keyed++;
+  let flat = 0;
+  for (let s = 0; s < paperSections.length; s++) {
+    for (const question of paperSections[s].questions) {
+      const position = flat++;
+      const correct = answerKey.get(question.id);
+      if (correct === undefined) continue;
+      const order = Array.isArray(optionOrders[position]) ? optionOrders[position] : null;
+      const displayChoice = order ? order.indexOf(correct) : correct;
+      if (displayChoice < 0) continue;
+      const a = await call('/exam/answer', {
+        m: 'POST',
+        tok: stu,
+        body: { question_id: question.id, choice: displayChoice, index: position },
+      });
+      if (a.s === 200) keyed++;
+    }
+    if (s < paperSections.length - 1) {
+      await call('/exam/section/finish', {
+        m: 'POST',
+        tok: stu,
+        body: { category: paperSections[s].name },
+      });
+    }
   }
   ok(keyed === 9, 'all 9 questions answered with the answer key');
 
@@ -601,6 +627,7 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
       starts_at: new Date(Date.now() - 1000).toISOString(),
       duration_min: 60,
       config: { Aptitude: 2, Logic: 2, Frontend: 2 },
+      section_limits: { Aptitude: 5, Logic: 5, Frontend: 20 },
       domain_mode: 'select',
       domain_rules: { common: ['Aptitude', 'Logic'], allowed: ['Frontend'], min: 1, max: 1 },
     },
@@ -817,6 +844,7 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
       starts_at: new Date(Date.now() - 1000).toISOString(),
       duration_min: 60,
       config: { Aptitude: 1, Logic: 1, Frontend: 1 },
+      section_limits: { Aptitude: 20, Logic: 20, Frontend: 20 },
     },
   });
   ok(r.s === 201, 'an event for the resume and restart checks is created');
@@ -931,6 +959,21 @@ export async function runSmoke({ base = process.env.SMOKE_BASE || 'http://localh
   // A classic event has no domain selection at all.
   r = await call('/student/event', { tok: stu });
   ok(r.j.domains?.enabled === false, 'a classic event has no domain selection');
+
+  // Publication waits for every existing paper. The integrity checks above leave
+  // live papers behind, so the proctor hands them in the way an operator would.
+  const { rows: livePapers } = await pool.query(
+    `SELECT email FROM papers WHERE event_id = $1 AND status <> 'submitted'`,
+    [eventId],
+  );
+  for (const livePaper of livePapers) {
+    r = await call('/admin/force-submit', {
+      m: 'POST',
+      tok: adm,
+      body: { key: `${eventId}:${livePaper.email}` },
+    });
+    ok(r.s === 200, `the proctor can hand in ${livePaper.email}'s live paper`);
+  }
 
   /* ------------------------------------------------------- result publication */
 

@@ -15,7 +15,6 @@ export const CATEGORIES = [
   'Backend',
   'Full Stack',
   'Cybersecurity',
-  'Cyber Security',
   'Digital Marketing',
   'On-Field Marketing',
   'Business & Data Analyst',

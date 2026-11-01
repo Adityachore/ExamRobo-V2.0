@@ -4,25 +4,41 @@
 
 Open items for the canonical v1.5.0 release. Strike through as each closes.
 
-- **91 uncommitted files** — all Phase 16/17 work was outside git. → T-1502.
-- **Root deploy could not start** — `.env` had no `POSTGRES_PASSWORD` and there
-  was no root `.env.example`; the compose file requires the variable. → T-1503/T-1504.
-- **Production assets live only in the archive** — `server/DEPLOY.md`, the import
-  tooling and `_target_archive/007-009` existed only in `examrobo-3`. → T-1503.
-- **Seeded events have no sections** — `server/scripts/seed.js:184` inserts the
-  event without `section_limits`, so seeded papers use the legacy single
-  deadline and never exercise the section engine. → T-1506.
-- **bcrypt rounds disagree** — `seed.js` uses 10, `create-admin.mjs` /
-  `BCRYPT_ROUNDS` use 12. → T-1506.
-- **Category name duplicated** — the taxonomy carries both `Cyber Security` and
-  `Cybersecurity`; the 1100-question bank needs one. → T-1507/T-1508.
-- **Cloudflare client IP is not forwarded** — nginx must map
-  `CF-Connecting-IP` / `X-Forwarded-Proto` or lockouts and the SEB hash use the
-  tunnel address. → T-1504.
-- **1100-question bank is not imported** — root has no parser for the markdown
-  bank; `examrobo-3` imported only 221 questions. → T-1507/T-1508.
-- **Verification has not run on a section-aware dataset** — Docker was down in
-  the last session. → T-1509.
+- ~~**91 uncommitted files**~~ — committed in `6fe8a3e` / `00d8e5a`. → T-1502.
+- ~~**Root deploy could not start**~~ — root `.env.example` and `DB_PASSWORD`
+  are in place; the stack boots. → T-1503/T-1504.
+- ~~**Production assets live only in the archive**~~ — `DEPLOY.md`, the import
+  tooling and `docs/` are in the main tree. → T-1503.
+- ~~**Seeded events have no sections**~~ — `seed.js` now derives
+  `section_limits` evenly across the event's categories. → T-1506.
+- ~~**bcrypt rounds disagree**~~ — both paths read `BCRYPT_ROUNDS`. → T-1506.
+- ~~**Category name duplicated**~~ — `competency.js` no longer offers the spaced
+  `Cyber Security`; migration `011` normalises the stored value and the bank
+  importer writes `Cybersecurity`. → T-1507/T-1508.
+- ~~**Cloudflare client IP is not forwarded**~~ — nginx maps
+  `CF-Connecting-IP` / `X-Forwarded-Proto`. → T-1504.
+- **1100-question bank is not imported** — the importer is committed
+  (`00d8e5a`) and parses 1100 / 100-per-domain / 330-715-55, but the live DB is
+  seeded with the 10-question dev bank. The stock seed event uses
+  Aptitude/Logic, which are not among the 11 imported domains, so the import
+  needs an event config on imported categories first. → T-1508.
+- ~~**Verification has not run on a section-aware dataset**~~ — four phases
+  PASS on 2026-11-01: 158 unit tests and 178/178 smoke assertions. → T-1509.
+
+Closed in the section-aware verification pass (2026-11-01):
+
+- ~~**`derivedDuration()` was exported but never called**~~ — an event that
+  omitted `duration_min` got no paper length. `normalizeEventInput` now falls
+  back to the duration derived from `section_limits`; an explicit
+  `duration_min` still wins. T-1402 keeps `section_limits` required.
+- ~~**The smoke answered the whole paper at once**~~ — only the active section
+  accepts answers, and grading maps the *displayed* choice through
+  `option_orders`. The main flow now answers each section, finishes it, and
+  maps authored → displayed before answering.
+- ~~**Publication failed after the integrity checks**~~ — publishing requires
+  every paper submitted, but the fullscreen/tabs/reload checks leave live
+  papers. The smoke now hands them in through the proctor force-submit
+  endpoint before publishing, as an operator would.
 
 
 ## Critical & High Priority

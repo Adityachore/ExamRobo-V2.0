@@ -193,7 +193,7 @@ test('the client is told what it may choose and what a choice is worth', () => {
 test('the technical domains of the project are the categories of the model', () => {
   const common = ['Aptitude', 'Logic'];
   const technical = CATEGORIES.filter((c) => !common.includes(c));
-  assert.equal(technical.length, 16, 'sixteen technical domains the student may pick');
+  assert.equal(technical.length, 15, 'fifteen technical domains the student may pick');
 });
 
 /* ----------------------------------------------------------------- the migration */

@@ -212,9 +212,14 @@ export function normalizeEventInput(body = {}, base = {}) {
     if (unknown.length) fields.section_limits = `Unknown section: ${unknown.join(', ')}.`;
   }
 
-  // duration_min is the event window, not the paper deadline. It is always
-  // supplied explicitly; section limits never deduce it.
-  const durationMin = asPositiveInt(source.duration_min ?? current.duration_min);
+  // duration_min is the event window, not the paper deadline. An explicit value
+  // wins; when it is omitted, it is derived from the section limits (the total a
+  // paper can run).
+  const explicitDuration = asPositiveInt(source.duration_min ?? current.duration_min);
+  const derived = Object.keys(sectionLimits).length
+    ? derivedDuration(sectionLimits, domainMode, { common, allowed, min, max })
+    : null;
+  const durationMin = explicitDuration || derived;
   if (!durationMin) {
     fields.duration_min = 'The event window must be at least 1 minute.';
   }

@@ -1,5 +1,29 @@
 # ExamRobo Log
 
+## 2026-11-01 (section-aware verification and live stack)
+
+- **`npm run verify` is fully green.** Four phases PASS: preflight, 158 unit
+  tests, web build and 178/178 smoke assertions. The previous run aborted in the
+  domain block; the fixes below closed it.
+- **Duration now derives from the section limits.** `derivedDuration()` existed
+  but was never called, so an event that omitted `duration_min` got no paper
+  length. `normalizeEventInput` now falls back to the derived value; an explicit
+  `duration_min` still wins. T-1402 keeps `section_limits` required.
+- **The smoke speaks the section engine's language.** The main flow answered all
+  9 questions at once, but only the active section accepts answers, and grading
+  maps the *displayed* choice through `option_orders`. The flow now answers each
+  section, finishes it, and maps authored → displayed before answering.
+- **Publication waits for every paper.** The integrity checks leave live papers
+  (fullscreen/tabs/reload); the smoke now hands them in through the proctor
+  force-submit endpoint before publishing, as an operator would.
+- **The stray `Cyber Security` category is gone** from `competency.js`; the test
+  now expects 15 technical domains (the bank importer writes `Cybersecurity`).
+- **Live stack rebuilt and seeded.** `examrobo-api` (new code) and
+  `examrobo-web` are healthy; the dev bank is seeded (event
+  `333eaa54-7c1e-421a-b7a4-c89cf7fddb59`, starts 2026-11-01T16:02:48Z). The
+  full 1100-question import is still pending because the stock seed event uses
+  Aptitude/Logic, which are not bank domains (T-1508).
+
 ## 2026-11-01 (final version selection and consolidation)
 
 - **The root tree is the final version.** A read-only audit of all nine on-disk
