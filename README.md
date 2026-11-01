@@ -26,18 +26,40 @@ local Vite and web ports.
 ## Production deployment
 
 ```bash
-export POSTGRES_PASSWORD='...'
-export JWT_SECRET='...'          # long random value, never the dev default
+cp .env.example .env             # fill in JWT_SECRET and DB_PASSWORD
+chmod 600 .env
 docker compose up -d --build
 ```
 
-Only `web` is published, on `127.0.0.1:${WEB_PORT:-8080}`. `api`, `db`, and
-`redis` stay on an internal Docker network. Terminate TLS at a reverse proxy in
-front of the web container; do not expose the API port directly.
+Only `web` is published, on `127.0.0.1:${WEB_PORT:-8083}`. `api`, `db`, and
+`redis` stay on the `examrobo_internal` Docker network and are not publicly
+reachable. The production profile assumes Cloudflare in front of
+`examrobo.pararobo.in`: `web/nginx.conf` maps `CF-Connecting-IP` and
+`X-Forwarded-Proto`, so lockouts, rate limits and the SEB hash use the real
+student address and public scheme. Terminate TLS at Cloudflare (Full strict) or
+at a host reverse proxy in front of the web container; do not expose the API
+port directly.
 
 `CORS_ORIGINS` is empty by default in production, which means no cross-origin
 browser requests are accepted. The web app is served same-origin by nginx. Set
 it only if a separate browser origin must call the API.
+
+The full operator runbook is `server/DEPLOY.md` (first boot, ports, first admin,
+TLS, SEB, backups, upgrade and rollback). Read it before the first real exam.
+
+### Question bank
+
+The production content pack is `docs/question-bank/Internship_Exam_Question_Bank_1100.md`
+(1,100 questions, 11 domains × 100). Import it with:
+
+```bash
+cd server && npm run import-bank -- --dry-run
+cd server && npm run import-bank
+```
+
+The importer is idempotent on the question stem and never truncates the bank.
+Do not use `npm run seed` for production content — it truncates and reseeds.
+
 
 ### First admin
 

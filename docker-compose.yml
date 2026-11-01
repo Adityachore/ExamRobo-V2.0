@@ -1,54 +1,72 @@
+name: examrobo
+
+# Production profile. Copy .env.example to .env, fill in the secrets, then:
+#   docker compose up -d --build
+# Only `web` is published, and only on 127.0.0.1. Terminate TLS in front of it
+# (Cloudflare -> origin proxy, or Caddy/nginx on the host).
+
 services:
   db:
     image: postgres:16-alpine
+    container_name: examrobo-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: examrobo
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       POSTGRES_DB: examrobo
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - examrobo_pgdata:/var/lib/postgresql/data
+      - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    ports:
+      - "127.0.0.1:${DB_PORT:-5450}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U examrobo -d examrobo"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 10
     networks:
       - internal
+    mem_limit: 1g
 
   redis:
     image: redis:7-alpine
+    container_name: examrobo-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - redisdata:/data
+      - examrobo_redisdata:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 10
     networks:
       - internal
+    mem_limit: 256m
 
   api:
-    build: ./server
+    build:
+      context: ./server
+    image: examrobo-api
+    container_name: examrobo-api
     restart: unless-stopped
     init: true
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgres://examrobo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/examrobo
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://examrobo:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/examrobo
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS:-}
-      TRUST_PROXY: ${TRUST_PROXY:-1}
       RECORDINGS_DIR: /data/recordings
-      SEB_REQUIRED: ${SEB_REQUIRED:-false}
-      SEB_CONFIG_KEY: ${SEB_CONFIG_KEY:-}
       SEB_CONFIG_FILE: /app/assets/exam.seb
-      SEB_START_URL: ${SEB_START_URL:-}
-      NODE_ENV: ${NODE_ENV:-production}
     volumes:
-      - recordings:/data/recordings
+      - examrobo_recordings:/data/recordings
+      - ./server/assets:/app/assets:ro
+    ports:
+      - "127.0.0.1:${API_PORT:-4000}:4000"
     depends_on:
       db:
         condition: service_healthy
@@ -62,23 +80,31 @@ services:
       start_period: 30s
     networks:
       - internal
+    mem_limit: 1g
 
   web:
-    build: ./web
+    build:
+      context: ./web
+    image: examrobo-web
+    container_name: examrobo-web
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${WEB_PORT:-8080}:80"
+      - "127.0.0.1:${WEB_PORT:-8083}:80"
     networks:
       - internal
+    mem_limit: 128m
+
+volumes:
+  examrobo_pgdata:
+    name: examrobo_pgdata
+  examrobo_redisdata:
+    name: examrobo_redisdata
+  examrobo_recordings:
+    name: examrobo_recordings
 
 networks:
   internal:
-    internal: true
-
-volumes:
-  pgdata:
-  redisdata:
-  recordings:
+    name: examrobo_internal
