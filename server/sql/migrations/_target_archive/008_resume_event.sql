@@ -1,0 +1,2 @@
+-- Migration 008: admin resume and retry.
+-- no-op to avoid migration failures

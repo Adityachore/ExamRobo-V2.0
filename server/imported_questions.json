@@ -1,0 +1,2342 @@
+{
+  "frontend_medium_mcqs.md": {
+    "mapping": {
+      "category": "Frontend",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Which of the following CSS selectors has the highest specificity?",
+        "options": [
+          "`#header .nav-link`",
+          "`div#header .nav-link:hover`",
+          "`ul li a.nav-link`",
+          "`.header .nav-link:active`"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What will be the output of `console.log(typeof NaN)` in JavaScript?",
+        "options": [
+          "`undefined`",
+          "`NaN`",
+          "`number`",
+          "`object`"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which HTML5 element is most appropriate for marking up the title of a work (e.g., a book or a song) within a paragraph?",
+        "options": [
+          "`<i>`",
+          "`<cite>`",
+          "`<em>`",
+          "`<strong>`"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In JavaScript, what is the primary difference between `Map` and `WeakMap`?",
+        "options": [
+          "`Map` keys must be strings, `WeakMap` keys can be anything.",
+          "`WeakMap` keys must be objects and are weakly referenced.",
+          "`Map` is iterable, while `WeakMap` is synchronous.",
+          "`WeakMap` allows primitive data types as keys."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In CSS Grid, what does the `fr` unit represent?",
+        "options": [
+          "Fixed ratio of the parent container.",
+          "Frame rate rendering priority.",
+          "A fraction of the available free space in the grid container.",
+          "Free rendering space outside the grid."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In React, what happens if you call `setState()` directly inside the `render()` method?",
+        "options": [
+          "The component updates immediately without re-rendering.",
+          "It causes an infinite loop of re-renders.",
+          "The state is updated, but the UI ignores it.",
+          "It throws a compile-time syntax error."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which statement correctly describes `Promise.allSettled()` in JavaScript?",
+        "options": [
+          "It resolves only when all promises are resolved successfully.",
+          "It rejects immediately if any of the promises reject.",
+          "It waits for all promises to be resolved or rejected and returns an array of their outcomes.",
+          "It returns the value of the first promise that resolves."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "An element is styled with `position: sticky; top: 0;`. When does it stop sticking and scroll away?",
+        "options": [
+          "When the user scrolls past the `body` element.",
+          "When its containing parent element scrolls out of the viewport.",
+          "It never scrolls away; it behaves exactly like `position: fixed`.",
+          "When the viewport width changes."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is a key characteristic of `sessionStorage` compared to `localStorage`?",
+        "options": [
+          "`sessionStorage` has a much larger storage limit.",
+          "Data in `sessionStorage` is cleared when the page session ends (e.g., the tab is closed).",
+          "`sessionStorage` is accessible across different browser windows and tabs.",
+          "`sessionStorage` requires server-side validation."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the effect of `Object.freeze()` on a JavaScript object?",
+        "options": [
+          "It prevents new properties from being added, but existing ones can be modified.",
+          "It prevents modifications to the object itself, but nested objects can still be modified (shallow freeze).",
+          "It deeply freezes the object and all its nested properties completely.",
+          "It makes the object completely invisible to `for...in` loops."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which is the correct syntax to define a CSS variable on the root pseudo-class?",
+        "options": [
+          "`:root { $main-color: blue; }`",
+          "`:root { --main-color: blue; }`",
+          "`html { var-main-color: blue; }`",
+          "`:root { @main-color: blue; }`"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the difference between `<script defer>` and `<script async>`?",
+        "options": [
+          "`async` guarantees execution order, while `defer` does not.",
+          "Both block HTML parsing, but `defer` executes faster.",
+          "`defer` executes scripts in order after HTML parsing; `async` executes scripts immediately after download, without guaranteeing order.",
+          "`defer` works only for inline scripts, `async` works only for external scripts."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the result of accessing a `let` variable before its declaration in JavaScript?",
+        "options": [
+          "It returns `undefined`.",
+          "It results in a `ReferenceError` due to the Temporal Dead Zone (TDZ).",
+          "It returns `null`.",
+          "It is automatically hoisted and initialized to `0`."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "How does the Virtual DOM improve performance in libraries like React?",
+        "options": [
+          "By directly updating the real DOM faster than standard JavaScript.",
+          "By keeping a lightweight copy of the DOM, calculating differences (diffing), and updating only the changed nodes in the real DOM.",
+          "By moving all DOM rendering to the server-side.",
+          "By replacing HTML and CSS entirely with JavaScript objects."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which array method would you use to create a new array containing only elements that pass a specific test condition?",
+        "options": [
+          "`map()`",
+          "`reduce()`",
+          "`filter()`",
+          "`slice()`"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "If an element has `width: 200px`, `padding: 20px`, `border: 5px solid black`, and `box-sizing: border-box`, what is the actual rendered width of the inner content area?",
+        "options": [
+          "200px",
+          "250px",
+          "150px",
+          "175px"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What does CORS stand for in web development?",
+        "options": [
+          "Cross-Origin Resource Sharing",
+          "Centralized Object Rendering System",
+          "Cascading Origin Request System",
+          "Cross-Object Relational Security"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Which of the following is NOT true about JavaScript's `\"use strict\"` mode?",
+        "options": [
+          "It eliminates some silent errors by changing them to throw errors.",
+          "It allows you to use variables without declaring them (e.g., `x = 10;`).",
+          "It prohibits the use of `with` statements.",
+          "It prevents deleting plain variables or functions."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which HTML attribute is used in the `<img>` tag to provide different image sources for different screen sizes or resolutions?",
+        "options": [
+          "`src-alt`",
+          "`media-query`",
+          "`srcset`",
+          "`sizes`"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is \"Event Delegation\" in JavaScript?",
+        "options": [
+          "Passing an event from a child element to a parent element automatically.",
+          "Attaching a single event listener to a parent element to manage events for its children, leveraging event bubbling.",
+          "Creating custom events to delegate tasks to web workers.",
+          "Preventing the default browser behavior of an event.  ---"
+        ],
+        "correct": 1
+      }
+    ],
+    "count": 20
+  },
+  "backend_medium_mcqs.md": {
+    "mapping": {
+      "category": "Backend",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Which of the following HTTP methods is considered \"idempotent\"?",
+        "options": [
+          "`POST`",
+          "`PUT`",
+          "`PATCH`",
+          "`CONNECT`"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Express.js, how is an error-handling middleware function differentiated from a regular middleware function?",
+        "options": [
+          "It is placed at the very top of the server file.",
+          "It uses the `app.error()` method.",
+          "It takes exactly four arguments `(err, req, res, next)`.",
+          "It must return a Promise."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the primary purpose of a Database Index?",
+        "options": [
+          "To compress the database size.",
+          "To speed up data retrieval operations (read queries).",
+          "To automatically back up the database.",
+          "To prevent SQL injection attacks."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What are the three standard parts of a JSON Web Token (JWT)?",
+        "options": [
+          "Header, Body, Footer",
+          "Client, Server, Signature",
+          "Header, Payload, Signature",
+          "Token, Key, Value"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What does the \"I\" in database ACID properties stand for?",
+        "options": [
+          "Integrity",
+          "Isolation",
+          "Iteration",
+          "Indexing"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the most secure and recommended way to store user passwords in a database?",
+        "options": [
+          "Encrypting them using Base64.",
+          "Storing them in plain text if the database is behind a firewall.",
+          "Hashing them with MD5.",
+          "Salting and Hashing them using algorithms like bcrypt or Argon2."
+        ],
+        "correct": 3
+      },
+      {
+        "stem": "In SQL, what is the main difference between the `WHERE` and `HAVING` clauses?",
+        "options": [
+          "`WHERE` filters rows before grouping, `HAVING` filters groups after aggregation.",
+          "`WHERE` is used for strings, `HAVING` is used for numbers.",
+          "`WHERE` is used with `JOIN`, `HAVING` is used with `UNION`.",
+          "There is no difference; they are interchangeable."
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What is the \"N+1 Query Problem\" in backend development?",
+        "options": [
+          "A bug where the server crashes after N+1 requests.",
+          "A database error where primary keys increment incorrectly.",
+          "A performance anti-pattern where an application makes one query to fetch a list, and then N additional queries to fetch related data for each item.",
+          "A limitation in GraphQL where you can only nest queries up to N levels."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "According to the CAP Theorem, a distributed data store can guarantee at most two out of three properties. Which of the following is NOT one of those three?",
+        "options": [
+          "Consistency",
+          "Availability",
+          "Performance",
+          "Partition Tolerance"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Why is using Streams in Node.js beneficial for reading large files?",
+        "options": [
+          "Streams automatically convert files to JSON.",
+          "Streams process data in chunks, preventing the entire file from being loaded into RAM at once.",
+          "Streams bypass the operating system's file system, making it instantly available.",
+          "Streams automatically encrypt the data as it is read."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which data structure in Redis is best suited for building a real-time gaming leaderboard?",
+        "options": [
+          "Strings",
+          "Hashes",
+          "Lists",
+          "Sorted Sets (ZSET)"
+        ],
+        "correct": 3
+      },
+      {
+        "stem": "What does an HTTP `429` status code indicate?",
+        "options": [
+          "Unauthorized access.",
+          "Resource not found.",
+          "Too Many Requests (Rate Limiting).",
+          "Internal Server Error."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the primary purpose of a `Dockerfile`?",
+        "options": [
+          "To store the application's environment variables securely.",
+          "To provide a set of instructions for building a Docker image.",
+          "To monitor the health of running Docker containers.",
+          "To orchestrate multiple containers, similar to Kubernetes."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which Node.js method is used to defer the execution of a function until the current event loop phase is complete, but before the next event loop phase begins?",
+        "options": [
+          "`setTimeout(fn, 0)`",
+          "`setImmediate(fn)`",
+          "`process.nextTick(fn)`",
+          "`EventEmiiter.emit(fn)`"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the standard defense against SQL Injection attacks?",
+        "options": [
+          "Minifying the SQL queries.",
+          "Storing the database on a different server.",
+          "Using Parameterized Queries (Prepared Statements).",
+          "Using `GET` instead of `POST` requests."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In the context of REST APIs, what is \"Pagination\"?",
+        "options": [
+          "Compressing the API response using GZIP.",
+          "Splitting a large dataset into smaller, manageable chunks or \"pages\" to reduce payload size.",
+          "Routing the request to different microservices based on the URL path.",
+          "The process of authenticating a user across multiple page visits."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is an ORM (Object-Relational Mapping)?",
+        "options": [
+          "A technique/tool that lets you query and manipulate data from a database using an object-oriented paradigm.",
+          "A design pattern for creating RESTful APIs.",
+          "A protocol used to secure database connections.",
+          "A caching layer that sits between the frontend and backend."
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "When working with MongoDB (or Mongoose), what is an Aggregation Pipeline?",
+        "options": [
+          "The process of migrating data from SQL to NoSQL.",
+          "A way to automatically back up the database cluster.",
+          "A framework for data aggregation modeled on the concept of data processing pipelines (using stages like `$match`, `$group`, `$sort`).",
+          "A method to establish WebSocket connections to the database."
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the key difference between WebSockets and standard HTTP?",
+        "options": [
+          "WebSockets only support text, while HTTP supports binary data.",
+          "WebSockets provide a persistent, full-duplex (bidirectional) connection, while HTTP is stateless and request-response based.",
+          "WebSockets do not require a server; HTTP does.",
+          "HTTP is faster for real-time chat applications than WebSockets."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the default module system used in traditional Node.js (before ES Modules)?",
+        "options": [
+          "AMD (Asynchronous Module Definition)",
+          "UMD (Universal Module Definition)",
+          "CommonJS (using `require` and `module.exports`)",
+          "ES Modules (using `import` and `export`)"
+        ],
+        "correct": 2
+      }
+    ],
+    "count": 20
+  },
+  "shortlisted_ai_ml_mcqs.md": {
+    "mapping": {
+      "category": "AI & ML",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Which of the following best describes \"Supervised Learning\"?",
+        "options": [
+          "Training a model using unlabelled data to find hidden patterns.",
+          "Training a model using labelled data where the target output is known.",
+          "An agent learning to behave in an environment by receiving rewards or punishments.",
+          "Reducing the number of input variables in a dataset."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In the Bias-Variance tradeoff, a highly complex model (like a deep decision tree) typically has:",
+        "options": [
+          "High Bias and High Variance",
+          "High Bias and Low Variance",
+          "Low Bias and High Variance",
+          "Low Bias and Low Variance"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which of the following algorithms is primarily used for classification rather than regression?",
+        "options": [
+          "Linear Regression",
+          "Ridge Regression",
+          "Logistic Regression",
+          "Polynomial Regression"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which of the following is NOT an activation function used in Neural Networks?",
+        "options": [
+          "Sigmoid",
+          "ReLU",
+          "Support Vector",
+          "Tanh"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Why is the ReLU (Rectified Linear Unit) activation function popular in Deep Learning?",
+        "options": [
+          "It outputs values strictly between 0 and 1.",
+          "It helps mitigate the vanishing gradient problem.",
+          "It is completely linear.",
+          "It perfectly mimics the human brain."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which type of Neural Network is specifically designed and highly effective for image processing and computer vision?",
+        "options": [
+          "Recurrent Neural Networks (RNN)",
+          "Convolutional Neural Networks (CNN)",
+          "Generative Adversarial Networks (GAN)",
+          "Feedforward Neural Networks"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Natural Language Processing (NLP), what does TF-IDF stand for?",
+        "options": [
+          "Token Frequency - Inverse Document Frequency",
+          "Term Frequency - Inverse Document Frequency",
+          "Text Format - Internal Data Format",
+          "Time Frequency - Indexed Data Function"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which ML architecture revolutionized NLP by using \"Self-Attention\" mechanisms (e.g., BERT, GPT)?",
+        "options": [
+          "Autoencoders",
+          "Transformers",
+          "Restricted Boltzmann Machines",
+          "Convolutional Networks"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which technique generates synthetic minority class examples to handle imbalanced datasets?",
+        "options": [
+          "PCA",
+          "SMOTE (Synthetic Minority Over-sampling Technique)",
+          "K-Means",
+          "Gradient Descent"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Reinforcement Learning, what is the entity that observes the environment and takes actions?",
+        "options": [
+          "The Reward",
+          "The State",
+          "The Agent",
+          "The Policy"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What are the two main components of a Generative Adversarial Network (GAN)?",
+        "options": [
+          "Generator and Discriminator",
+          "Encoder and Decoder",
+          "Actor and Critic",
+          "Master and Worker"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Which of the following algorithms is an example of an Unsupervised Learning algorithm?",
+        "options": [
+          "Naive Bayes",
+          "Support Vector Machine",
+          "Apriori Algorithm (Association Rules)",
+          "Decision Tree"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In evaluating a binary classifier, what does the ROC curve plot?",
+        "options": [
+          "Precision vs. Recall",
+          "True Positive Rate vs. False Positive Rate",
+          "Accuracy vs. Loss",
+          "True Negatives vs. False Negatives"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does AUC stand for in the context of ROC-AUC?",
+        "options": [
+          "Accuracy Under Calculation",
+          "Area Under the Curve",
+          "Algorithm Usage Control",
+          "Absolute Unsupervised Clustering"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which algorithm updates its Q-values using the Bellman Equation?",
+        "options": [
+          "Random Forest",
+          "KMeans Clustering",
+          "Q-Learning (Reinforcement Learning)",
+          "Logistic Regression"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which loss function is most commonly used for binary classification tasks?",
+        "options": [
+          "Mean Squared Error (MSE)",
+          "Mean Absolute Error (MAE)",
+          "Binary Cross-Entropy (Log Loss)",
+          "Hinge Loss"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Grid Search and Random Search are techniques used for:",
+        "options": [
+          "Feature Scaling",
+          "Missing Value Imputation",
+          "Hyperparameter Tuning",
+          "Weight Initialization"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Word2Vec is a popular model used to generate:",
+        "options": [
+          "Decision Trees",
+          "Word Embeddings",
+          "Support Vectors",
+          "Convolutional Filters"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which optimization algorithm adapts the learning rate for each parameter and is widely used in Deep Learning?",
+        "options": [
+          "K-Means",
+          "Adam (Adaptive Moment Estimation)",
+          "Standard Gradient Descent",
+          "OLS (Ordinary Least Squares)"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In a Convolutional Neural Network, what does a \"Stride\" refer to?",
+        "options": [
+          "The number of layers in the network.",
+          "The number of pixels by which the filter/kernel shifts across the input image.",
+          "The size of the output image.",
+          "The learning rate of the CNN.  ---"
+        ],
+        "correct": 1
+      }
+    ],
+    "count": 20
+  },
+  "Cybersecurity Selected Questions Test Paper.md": {
+    "mapping": {
+      "category": "Cybersecurity",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Which three principles form the CIA Triad?",
+        "options": [
+          "Control, Inspection, Authentication",
+          "Confidentiality, Integrity, Availability",
+          "Cybersecurity, Network, Authorization",
+          "Confidentiality, Inspection, Access"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which of the following is the strongest password storage approach?",
+        "options": [
+          "Store as plain text",
+          "Use Base64 encoding",
+          "Use SHA-256 without salt",
+          "Use Argon2id with unique salt"
+        ],
+        "correct": 3
+      },
+      {
+        "stem": "Which security principle gives users only the permissions they need?",
+        "options": [
+          "Open access",
+          "Least privilege",
+          "Full authorization",
+          "Shared responsibility"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which cryptographic method uses a public and a private key?",
+        "options": [
+          "Symmetric encryption",
+          "Asymmetric cryptography",
+          "Hashing",
+          "Data compression"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does a digital signature primarily provide?",
+        "options": [
+          "Confidentiality only",
+          "Data compression",
+          "Authenticity and integrity",
+          "Guaranteed anonymity"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which port is the default for HTTPS?",
+        "options": [
+          "21",
+          "25",
+          "80",
+          "443"
+        ],
+        "correct": 3
+      },
+      {
+        "stem": "What does SIEM stand for?",
+        "options": [
+          "Security Information & Event Management",
+          "Secure Internet Encryption Method",
+          "System Inspection & Error Monitoring",
+          "Security Integration Mapping"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Which Linux command displays file permissions and ownership in detailed listing?",
+        "options": [
+          "ls -l",
+          "pwd -x",
+          "mkdir -p",
+          "clear -r"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Which of the following is an example of Endpoint Detection and Response (EDR)?",
+        "options": [
+          "Monitoring endpoint behavior",
+          "Creating presentations",
+          "Managing website colors",
+          "Converting image formats"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Which measure is most effective for reducing risk from unpatched software vulnerabilities?",
+        "options": [
+          "Ignore reports",
+          "Disable logs",
+          "Apply tested security patches",
+          "Share admin accounts"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "A company discovers passwords stored in plain text. What should it do?",
+        "options": [
+          "Hide database",
+          "Convert to Base64",
+          "Salted password hashing (Argon2id)",
+          "Email passwords"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "An employee receives an unexpected password-reset email with a suspicious link. Safest action?",
+        "options": [
+          "Click immediately",
+          "Forward to all",
+          "Report through security process",
+          "Reply with password"
+        ],
+        "correct": 2
+      }
+    ],
+    "count": 12
+  },
+  "Grammar and Vocabulary Test Papers.md": {
+    "mapping": {
+      "category": "Grammar",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Choose the word most SIMILAR in meaning to UBIQUITOUS:",
+        "options": [
+          "Rare",
+          "Omnipresent",
+          "Scarce",
+          "Localized"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Choose the word most OPPOSITE in meaning to EXPEDITIOUS:",
+        "options": [
+          "Prompt",
+          "Sluggish",
+          "Swift",
+          "Speedy"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Choose the word most OPPOSITE in meaning to EPHEMERAL:",
+        "options": [
+          "Transient",
+          "Fleeting",
+          "Enduring",
+          "Evanescent"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Choose the word most SIMILAR in meaning to SANGUINE:",
+        "options": [
+          "Pessimistic",
+          "Optimistic",
+          "Gloomy",
+          "Despondent"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Choose the word most SIMILAR in meaning to ESOTERIC:",
+        "options": [
+          "Obscure",
+          "Common",
+          "Public",
+          "Familiar"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Choose the word most SIMILAR in meaning to RECALCITRANT:",
+        "options": [
+          "Obedient",
+          "Defiant",
+          "Compliant",
+          "Submissive"
+        ],
+        "correct": 1
+      }
+    ],
+    "count": 6
+  },
+  "Logical Reasoning Test Paper 2 and 3.md": {
+    "mapping": {
+      "category": "Logic",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "If CAT = 24, DOG = ? (Given: A=1, B=2...)",
+        "options": [
+          "26",
+          "28",
+          "25",
+          "30"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Complete Analogy: India : New Delhi :: Japan : ?",
+        "options": [
+          "Beijing",
+          "Tokyo",
+          "Seoul",
+          "Bangkok"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "If 'SUN' is coded as '60', how is 'MOON' coded?",
+        "options": [
+          "50",
+          "57",
+          "52",
+          "60"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Find the missing term: 3, 9, 27, 81, ?",
+        "options": [
+          "243",
+          "162",
+          "216",
+          "250"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Complete Analogy: Author : Book :: Sculptor : ?",
+        "options": [
+          "Statue",
+          "Paint",
+          "Stone",
+          "Canvas"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Complete the sequence: ACE, GIK, MOQ, ?",
+        "options": [
+          "SUW",
+          "TVX",
+          "STU",
+          "UWY"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "If 'GO' = 32, 'SHE' = 49, then 'SOME' = ? (Using reverse letter position values)",
+        "options": [
+          "56",
+          "58",
+          "62",
+          "64"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A is B's brother. C is A's mother. D is C's father. How is B related to D?",
+        "options": [
+          "Grandson",
+          "Granddaughter",
+          "Grandchild",
+          "Son"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "A walks 4 km East, then 3 km North. Shortest distance from starting point:",
+        "options": [
+          "7 km",
+          "5 km",
+          "6 km",
+          "8 km"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Pointing to a woman, Rahul says \"Her daughter is my sister\". How is woman related to Rahul?",
+        "options": [
+          "Mother",
+          "Aunt",
+          "Sister",
+          "Grandmother"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "If South-East direction becomes North, then West direction becomes:",
+        "options": [
+          "South-East",
+          "North-East",
+          "South-West",
+          "North"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A man walks 10m South, turns left and walks 10m. Which direction is he from start?",
+        "options": [
+          "South-East",
+          "South-West",
+          "North-East",
+          "North-West"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Mother of X is sister of Y's father. What is the relation of X's father to Y?",
+        "options": [
+          "Uncle",
+          "Brother",
+          "Father",
+          "Cousin"
+        ],
+        "correct": 0
+      }
+    ],
+    "count": 13
+  },
+  "full_stack_development_medium_quiz_20_questions_answers.md": {
+    "mapping": {
+      "category": "Full Stack",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Which HTML element is best suited for the main navigation links of a website?",
+        "options": [
+          "<section>",
+          "<nav>",
+          "<aside>",
+          "<footer>"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In CSS Flexbox, which property aligns items along the main axis?",
+        "options": [
+          "align-items",
+          "align-content",
+          "justify-content",
+          "flex-wrap"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What does the CSS `box-sizing: border-box` rule do?",
+        "options": [
+          "Hides the border",
+          "Includes padding and border in the declared width and height",
+          "Removes padding",
+          "Forces a square element"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the output of `console.log(typeof null)` in JavaScript?",
+        "options": [
+          "null",
+          "undefined",
+          "object",
+          "boolean"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which array method creates a new array containing only elements that pass a test?",
+        "options": [
+          "map()",
+          "filter()",
+          "forEach()",
+          "reduce()"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the purpose of `async/await` in JavaScript?",
+        "options": [
+          "To style components",
+          "To work with promises using clearer asynchronous syntax",
+          "To create database tables",
+          "To stop all asynchronous tasks"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Node.js, what does npm primarily help you manage?",
+        "options": [
+          "CSS selectors",
+          "Packages and project dependencies",
+          "Browser tabs",
+          "SQL rows only"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which Express.js method is commonly used to handle a GET request at `/users`?",
+        "options": [
+          "app.get('/users', handler)",
+          "app.css('/users', handler)",
+          "app.fetch('/users', handler)",
+          "app.routeGet('/users', handler)"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What is middleware in Express.js?",
+        "options": [
+          "A database column",
+          "A function that can inspect or modify the request/response and         pass control onward",
+          "A CSS framework",
+          "A browser extension"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which HTTP status code usually indicates a resource was created successfully?",
+        "options": [
+          "200",
+          "201",
+          "301",
+          "500"
+        ],
+        "correct": 1
+      }
+    ],
+    "count": 10
+  },
+  "aptitude_mcqs.md": {
+    "mapping": {
+      "category": "Aptitude",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "What is the remainder when $7^{84}$ is divided by 342?",
+        "options": [
+          "1",
+          "7",
+          "49",
+          "341"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "In an 80L mixture of milk & water, milk is 70%. How much water must be added to reduce milk to 40%?",
+        "options": [
+          "50L",
+          "60L",
+          "40L",
+          "45L"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Two trains run in opposite directions at 54 km/h & 72 km/h. Faster train passes a man in slower train in 12s. Faster train length:",
+        "options": [
+          "420m",
+          "360m",
+          "400m",
+          "380m"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Pipe A fills in 12h, Pipe B in 16h. Leak C empties full tank in 24h. Opened together, time to fill 50% tank:",
+        "options": [
+          "4.8h",
+          "9.6h",
+          "5.4h",
+          "6.2h"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "In an isosceles triangle ABC with AB = AC = 13 cm and BC = 10 cm, find the inradius of the triangle:",
+        "options": [
+          "3 cm",
+          "3.33 cm",
+          "4 cm",
+          "2.5 cm"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Sum of infinite geometric series is 12 and first term is 8. Find common ratio r:",
+        "options": [
+          "1/3",
+          "2/3",
+          "1/2",
+          "1/4"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A and B start a business. A invests \u20b940,000 for 12 months, B invests \u20b960,000 for 8 months. Ratio of profit share:",
+        "options": [
+          "1:1",
+          "3:2",
+          "4:3",
+          "2:3"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Average age of a class of 30 students is 15 years. If teacher's age is included, average increases by 1 year. Teacher's age:",
+        "options": [
+          "45",
+          "46",
+          "40",
+          "50"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Solve for x: $\\log_2 (x-1) + \\log_2 (x + 1) = 3$",
+        "options": [
+          "3",
+          "$\\sqrt{9}$",
+          "3.5",
+          "$\\sqrt{10}$"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Total distinct permutations of the letters in the word 'MISSISSIPPI':",
+        "options": [
+          "34,650",
+          "13,860",
+          "69,300",
+          "11,550"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A clock loses 5 minutes every 2 hours. If set correctly at 6:00 AM on Monday, time shown at 6:00 PM on Tuesday:",
+        "options": [
+          "4:30 PM",
+          "4:45 PM",
+          "5:15 PM",
+          "5:00 PM"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Side of a square increased by 25%. Percentage increase in its area:",
+        "options": [
+          "50%",
+          "56.25%",
+          "62.5%",
+          "44%"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "If $3^{x+y}=81$ and $81^{x-y}=3$, then $x=?$",
+        "options": [
+          "17/8",
+          "15/8",
+          "2",
+          "9/4"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "In what ratio must water be mixed with milk costing \u20b960/L to get a mixture worth \u20b950/L?",
+        "options": [
+          "1:5",
+          "1:6",
+          "1:4",
+          "2:5"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Price of sugar rises 20%. By what % must a family reduce consumption to keep expenditure constant?",
+        "options": [
+          "16.67%",
+          "20%",
+          "15%",
+          "18.25%"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Two dice tossed. Probability that sum is a multiple of 3 or 4:",
+        "options": [
+          "5/9",
+          "7/12",
+          "4/9",
+          "1/2"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A train passes a telegraph post in 8s and a 200m bridge in 24s. Length of train:",
+        "options": [
+          "100m",
+          "120m",
+          "150m",
+          "80m"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "HCF and LCM of two numbers are 18 and 378. If one number is 54, the other is:",
+        "options": [
+          "126",
+          "144",
+          "108",
+          "162"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A sum of money quadruples itself in 12 years at SI. In how many years will it become 10 times itself?",
+        "options": [
+          "36 yrs",
+          "30 yrs",
+          "40 yrs",
+          "32 yrs"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "A person sells two items for \u20b9990 each. On one he gains 10% and on other loses 10%. Overall result:",
+        "options": [
+          "1% loss",
+          "1% profit",
+          "No gain/loss",
+          "2% loss"
+        ],
+        "correct": 0
+      }
+    ],
+    "count": 20
+  },
+  "data_analytics_mcqs.md": {
+    "mapping": {
+      "category": "Business & Data Analytics",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "In SQL, what is the logical order of execution for a query?",
+        "options": [
+          "SELECT, FROM, WHERE...",
+          "FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY",
+          "FROM, SELECT, WHERE...",
+          "SELECT, WHERE, FROM..."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the result of `NULL = NULL` in a standard SQL `WHERE` clause?",
+        "options": [
+          "TRUE",
+          "FALSE",
+          "Syntax Error",
+          "UNKNOWN (or NULL)"
+        ],
+        "correct": 3
+      },
+      {
+        "stem": "What does a Type I error represent in hypothesis testing?",
+        "options": [
+          "Fail to reject false Ho",
+          "Rejecting a true null hypothesis",
+          "Accept true H1",
+          "Reject false H1"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Pandas, what is the difference between `loc` and `iloc`?",
+        "options": [
+          "`loc` label-based, `iloc` integer-based",
+          "`loc` integer-based, `iloc` label-based",
+          "`loc` columns, `iloc` rows",
+          "No difference"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "When choosing an imputation method with extreme outliers, which is safest?",
+        "options": [
+          "Mean imputation",
+          "Median imputation",
+          "Mode imputation",
+          "Forward fill"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does the Central Limit Theorem state?",
+        "options": [
+          "Sample mean = pop mean",
+          "Sample means approach normal dist. as N grows",
+          "All data converges",
+          "Variance decreases"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Tableau, what does LOD stand for?",
+        "options": [
+          "Level of Detail",
+          "Limit of Data",
+          "List of Dimensions",
+          "Logical Output Def"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What is the key difference between `UNION` and `UNION ALL` in SQL?",
+        "options": [
+          "UNION keeps dupes",
+          "UNION ALL keeps dupes, UNION removes",
+          "UNION sorts data",
+          "Both B and C are correct"
+        ],
+        "correct": 3
+      },
+      {
+        "stem": "What is the primary use of Principal Component Analysis (PCA)?",
+        "options": [
+          "Feature scaling",
+          "Dimensionality reduction",
+          "Outlier detection",
+          "Classification"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which Python library is strictly focused on creating interactive, web-ready visualizations?",
+        "options": [
+          "Matplotlib",
+          "Seaborn",
+          "Plotly",
+          "NumPy"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is an inner join?",
+        "options": [
+          "Match in either table",
+          "All left + matched right",
+          "Matching values in both tables",
+          "All right + matched left"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which of the following is a NoSQL database?",
+        "options": [
+          "PostgreSQL",
+          "MongoDB",
+          "Oracle",
+          "MySQL"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is K-Means?",
+        "options": [
+          "Supervised classification",
+          "Unsupervised clustering",
+          "Regression algorithm",
+          "Dimensionality reduction"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In SQL, what does the `COALESCE` function do?",
+        "options": [
+          "Joins two strings",
+          "Returns first non-null value in list",
+          "Counts n\u043en-nulls",
+          "String to integer"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "How does L1 Regularization (Lasso) differ from L2 (Ridge)?",
+        "options": [
+          "L1 can shrink coeffs to zero",
+          "L2 can shrink coeffs to zero",
+          "L1 squares penalty",
+          "No difference"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "In Pandas, what is the result of applying `.value_counts()` on a Series?",
+        "options": [
+          "Single integer count",
+          "Series containing counts of unique values",
+          "List of unique strings",
+          "Boolean array"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is Heteroscedasticity in regression analysis?",
+        "options": [
+          "Error variance constant",
+          "Error variance unequal across values",
+          "Perfect correlation",
+          "Normally distributed"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which SQL clause is used to return only unique values?",
+        "options": [
+          "UNIQUE",
+          "DISTINCT",
+          "DIFFERENT",
+          "GROUP UNIQUE"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does ETL stand for in Data Engineering?",
+        "options": [
+          "Extract, Test, Load",
+          "Export, Transform, Load",
+          "Extract, Transform, Load",
+          "Evaluate, Test, Learn"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In SQL, what is a CROSS JOIN?",
+        "options": [
+          "Matched rows only",
+          "Produces Cartesian product of two tables",
+          "Spatial mapping",
+          "Left + right join"
+        ],
+        "correct": 1
+      }
+    ],
+    "count": 20
+  },
+  "digital_marketing_mcqs.md": {
+    "mapping": {
+      "category": "Digital Marketing",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "In SEO, what is the primary purpose of a \"301 Redirect\"?",
+        "options": [
+          "To temporarily redirect traffic during site maintenance.",
+          "To permanently redirect a URL to a new destination, passing SEO authority.",
+          "To block search engines from crawling a specific page.",
+          "To track user clicks on outbound links."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does the term \"Canonical Tag\" achieve in SEO?",
+        "options": [
+          "It prevents duplicate content issues by specifying the \"preferred\" version of a web page.",
+          "It forces search engines to index a page immediately.",
+          "It translates the page into multiple languages.",
+          "It highlights keywords within the page content."
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What is a \"Negative Keyword\" in a PPC campaign?",
+        "options": [
+          "A keyword with poor performance that Google pauses.",
+          "A keyword that prevents your ad from being triggered by a certain word or phrase.",
+          "A keyword that competitors bid on to steal traffic.",
+          "A keyword that decreases your Quality Score."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which metric measures the gross revenue generated for every dollar spent on advertising?",
+        "options": [
+          "CPA (Cost Per Acquisition)",
+          "ROI (Return on Investment)",
+          "ROAS (Return on Ad Spend)",
+          "LTV (Lifetime Value)"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the default keyword match type in Google Ads if you do not add any special formatting?",
+        "options": [
+          "Exact Match",
+          "Phrase Match",
+          "Broad Match",
+          "Negative Match"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is a \"Lead Magnet\"?",
+        "options": [
+          "A piece of software that scrapes emails.",
+          "A free item or service offered in exchange for the user's contact information.",
+          "A pop-up that cannot be closed.",
+          "An influencer who drives high traffic."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is a \"Drip Campaign\"?",
+        "options": [
+          "A campaign that slowly leaks confidential info.",
+          "An automated sequence of pre-written emails sent to people who take a specific action.",
+          "A daily social media posting strategy.",
+          "A bidding strategy in Google Ads."
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which metric tells you the percentage of people who opened an email out of the total delivered?",
+        "options": [
+          "Delivery Rate",
+          "CTOR",
+          "Open Rate",
+          "Subscription Rate"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What does BOFU stand for in a content marketing funnel?",
+        "options": [
+          "Bounce Over First User",
+          "Best Offers For Users",
+          "Bottom of the Funnel (Decision/Action stage)",
+          "Brand Optimization Utility"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In Google Analytics 4 (GA4), what is the fundamental measurement model based on?",
+        "options": [
+          "Pageviews and Sessions",
+          "Events and Parameters",
+          "Users and Bounce Rate",
+          "Cookies and IP Addresses"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which of the following is NOT one of Google's Core Web Vitals?",
+        "options": [
+          "Largest Contentful Paint (LCP)",
+          "First Input Delay (FID)",
+          "Time to First Byte (TTFB)",
+          "Cumulative Layout Shift (CLS)"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In email marketing authentication, what does SPF stand for?",
+        "options": [
+          "Secure Profile Filtering",
+          "Spam Prevention Format",
+          "Sender Policy Framework",
+          "Standard Protocol Forwarding"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In the context of programmatic advertising, what is a DSP?",
+        "options": [
+          "Digital Sales Platform",
+          "Demand-Side Platform",
+          "Data Security Protocol",
+          "Display Search Provider"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Local SEO, what does \"NAP\" stand for?",
+        "options": [
+          "Network Access Protocol",
+          "New Audience Profiling",
+          "Name, Address, Phone Number",
+          "Native Advertising Placement"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "Which psychological principle is often used in CRO by displaying \"Only 2 items left in stock!\"?",
+        "options": [
+          "Social Proof",
+          "Scarcity",
+          "Reciprocity",
+          "Anchoring"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is a \"Zero-Click Search\" on Google?",
+        "options": [
+          "A search where the query is answered directly on the SERP, resulting in no clicks to external websites.",
+          "A search query that returns exactly zero results.",
+          "A voice search performed via smart speakers.",
+          "A search performed by a bot rather than a human."
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What does \"CAC\" stand for in business metrics?",
+        "options": [
+          "Click and Convert",
+          "Cost After Conversion",
+          "Customer Acquisition Cost",
+          "Consumer Analytics Chart"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What does the acronym \"AIDA\" stand for in marketing models?",
+        "options": [
+          "Analytics, Insights, Data, Action",
+          "Attention, Interest, Desire, Action",
+          "Acquisition, Interaction, Decision, Advocacy",
+          "Advertising, Investment, Distribution, Analytics"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In mobile marketing, what is \"ASO\"?",
+        "options": [
+          "Automated Search Optimization",
+          "App Store Optimization",
+          "Application Security Output",
+          "Audience Segmentation Operations"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does \"MQL\" stand for in the lead generation funnel?",
+        "options": [
+          "Minimum Qualified Lead",
+          "Maximum Quality Link",
+          "Marketing Qualified Lead",
+          "Monthly Quota Limit"
+        ],
+        "correct": 2
+      }
+    ],
+    "count": 20
+  },
+  "frontend_pdf_mcqs.md": {
+    "mapping": {
+      "category": "Frontend",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Which JS method prevents adding/deleting properties but allows modifying existing ones?",
+        "options": [
+          "Object.freeze()",
+          "Object.seal()",
+          "Object.preventExtensions()",
+          "Object.lock()"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "How does Event Delegation work in the DOM?",
+        "options": [
+          "Shadow DOM listeners",
+          "Single parent listener via event bubbling propagation on children",
+          "Document root capture",
+          "Stop"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In Flexbox, what does `flex: 1 0 200px` represent?",
+        "options": [
+          "grow=1, shrink=0, basis 200px",
+          "grow=0, shrink=1, basis=200px",
+          "flex-direction=1, order=0",
+          "basis 1px, grow=0, shrink 200"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What will `console.log(typeof null, typeof NaN)` print in JS?",
+        "options": [
+          "'null', 'number'",
+          "'object', 'number'",
+          "'object', 'NaN'",
+          "'undefined', 'number'"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In React, what is the primary purpose of the `useCallback` hook?",
+        "options": [
+          "Cache values",
+          "Memoize function references",
+          "Async API calls",
+          "Replace useEffect"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "How does `localStorage` differ from `sessionStorage`?",
+        "options": [
+          "1GB limit",
+          "Tab close keeps session",
+          "sessionStorage expires on tab close",
+          "Sends data to server"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is the execution order of Microtasks vs Macrotasks in the JS Event Loop?",
+        "options": [
+          "Macrotasks first",
+          "All Microtasks run after current Macrotask",
+          "1 per frame",
+          "Standard FIFO"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In JavaScript ES6, how does `WeakMap` differ from a regular `Map`?",
+        "options": [
+          "Primitive keys",
+          "Keys are weakly-held objects",
+          "Keeps insertion order",
+          "Supports for... of"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does `box-sizing: border-box` CSS declaration do?",
+        "options": [
+          "Border outside margin",
+          "Includes padding & border in total width/height",
+          "Shrink-wraps content",
+          "Removes outline"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "How does an Arrow Function bind `this` in JavaScript?",
+        "options": [
+          "Dynamic invocation binding",
+          "Lexical binding from enclosing scope",
+          "Works with \"new\"",
+          "Points to global window"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What happens when `Promise.all()` encounters a rejected promise?",
+        "options": [
+          "Resolves remaining",
+          "Rejects immediately with first failure reason",
+          "Retries 3 times",
+          "Returns status array"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What happens when `Array.reduce()` runs on `[10, 20, 30]` with no initial value?",
+        "options": [
+          "undefined",
+          "Uses 10 as initial value, starts at index 1",
+          "TypeError",
+          "NaN"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the cleanup function inside React `useEffect` used for?",
+        "options": [
+          "Reset state",
+          "Unmount DOM",
+          "Unsubscribe listeners & timers before re-running",
+          "Clear localStorage"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What will `0.1 + 0.2 === 0.3` evaluate to in JavaScript?",
+        "options": [
+          "true",
+          "false",
+          "TypeError",
+          "undefined"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which HTTP header helps prevent Clickjacking via iframe embedding?",
+        "options": [
+          "X-Content-Type-Options",
+          "X-Frame-Options",
+          "CSP: default-src",
+          "HSTS"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In HTML5, what does the `defer` attribute on a `<script>` tag do?",
+        "options": [
+          "Execute immediately",
+          "Download parallel; execute in order after HTML parsing",
+          "Delay to scroll",
+          "Block parsing"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is a JavaScript Closure?",
+        "options": [
+          "Function returning function",
+          "Function bundled with references to its outer scope",
+          "Seal object",
+          "Block scope"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Which CSS position anchors relative to nearest positioned ancestor?",
+        "options": [
+          "absolute",
+          "fixed",
+          "sticky",
+          "relative"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What is the purpose of the `useMemo` hook in React?",
+        "options": [
+          "Memoize props",
+          "Cache expensive computed values across renders",
+          "Store refs",
+          "DOM mutations"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In React, what happens if you mutate state directly?",
+        "options": [
+          "Runtime error",
+          "Change missed, component fails to re-render",
+          "Auto reverts",
+          "Unmounts  ---"
+        ],
+        "correct": 1
+      }
+    ],
+    "count": 20
+  },
+  "java_pdf_mcqs.md": {
+    "mapping": {
+      "category": "Java",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Why are String objects immutable in Java?",
+        "options": [
+          "Security, Caching, & Thread-safety",
+          "Prevent garbage collection",
+          "Enforce inheritance rules",
+          "Allow primitive casting"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Structural difference between abstract class and interface in Java 8+?",
+        "options": [
+          "Interfaces lack static methods",
+          "Abstract classes lack constructors",
+          "Abstract classes can keep state",
+          "Interfaces support private methods"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What happens when an object reference is passed to a method in Java?",
+        "options": [
+          "Passed by reference",
+          "Copy of reference passed by value",
+          "Memory pointer is frozen",
+          "Object cloned automatically"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "In HashMap (Java 8+), when does a bucket list convert to a balanced tree?",
+        "options": [
+          "Bucket length reaches 4",
+          "Bucket length >= 8 & capacity >= 64",
+          "Load factor reaches 0.75",
+          "Table capacity reaches 1024"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "How does `ConcurrentHashMap` achieve thread-safety without global locking in Java 8?",
+        "options": [
+          "Global ReentrantLock",
+          "Node-level CAS & synced buckets",
+          "Copy-On-Write on mutation",
+          "Single-threaded event loop"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does the PECS principle stand for in Java Generics wildcards?",
+        "options": [
+          "Producer Extends, Consumer Super",
+          "Producer Equals, Consumer Extends",
+          "Polymorphic Extension, Class Super",
+          "Parameter Extends, Collection Super"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Why is `ArrayList.get(index)` faster than `LinkedList.get(index)`?",
+        "options": [
+          "LinkedList uses sync methods",
+          "ArrayList has O(1) array indexing",
+          "LinkedList stores off-heap",
+          "ArrayList compresses nulls"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What primary data is allocated in JVM Stack Memory vs Heap Memory?",
+        "options": [
+          "Objects on Stack, primitives on Heap",
+          "Frames/primitives on Stack; Objects on Heap",
+          "Metadata on Stack; Strings on Heap",
+          "All stored on Heap"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What does the `volatile` keyword guarantee for a shared field variable?",
+        "options": [
+          "Atomic compound operations",
+          "Reentrant lock synchronization",
+          "Cross-thread visibility & reorder prevention",
+          "Prevents garbage collection"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What advantage does `ReentrantLock` offer over intrinsic synchronized blocks?",
+        "options": [
+          "Auto release without try-finally",
+          "Interruptible acquisition & tryLock timeouts",
+          "Guaranteed lock-free execution",
+          "Faster heap allocation"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What defines Intermediate Operations in Java Streams (e.g., `.map()`, `.filter()`)?",
+        "options": [
+          "Execute immediately",
+          "Lazy; execute only when terminal operation called",
+          "Consume stream source",
+          "Return primitive arrays"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the difference between `Optional.orElse()` and `Optional.orElseGet()`?",
+        "options": [
+          "`orElse()` evaluates default value eagerly",
+          "`orElseGet()` takes plain value",
+          "`orElse()` is async",
+          "They behave identically"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What key properties define Java Records introduced in Java 14/16?",
+        "options": [
+          "Mutable state containers",
+          "Abstract classes with defaults",
+          "Immutable data classes with auto getters/equals",
+          "Interfaces with state"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "In Spring `@Transactional`, what does `propagation = Propagation.REQUIRES_NEW` do?",
+        "options": [
+          "Joins existing tx",
+          "Suspends existing tx & creates new independent one",
+          "Throws exception",
+          "Executes non-tx"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What is the difference between `@Component` and `@Bean` in Spring?",
+        "options": [
+          "`@Component` is method-level",
+          "`@Component` class auto-scan; `@Bean` method-level",
+          "`@Bean` is prototype only",
+          "Identical behavior"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "What causes the N+1 SELECT problem in JPA/Hibernate?",
+        "options": [
+          "Parent query + N child queries",
+          "N queries in 1 tx",
+          "Pool limit exceeded",
+          "Missing PK indexes"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What state is a JPA entity in after calling `entityManager.clear()`?",
+        "options": [
+          "Transient",
+          "Persistent",
+          "Detached",
+          "Removed"
+        ],
+        "correct": 2
+      },
+      {
+        "stem": "What is a Functional Interface in Java?",
+        "options": [
+          "Interface with 0 methods",
+          "Interface with 1 abstract method",
+          "Default methods only",
+          "Marker interface"
+        ],
+        "correct": 1
+      },
+      {
+        "stem": "Why is `volatile` required on instance field in Double-Checked Locking Singleton?",
+        "options": [
+          "Prevents instruction reordering",
+          "Forces locks",
+          "Makes constructor public",
+          "Prevents reflection"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Key difference between `CountDownLatch` and `CyclicBarrier`?",
+        "options": [
+          "CountDownLatch cannot be reused; CyclicBarrier can be reset",
+          "CyclicBarrier is single-thread",
+          "Heap vs Stack",
+          "Identical"
+        ],
+        "correct": 0
+      }
+    ],
+    "count": 20
+  },
+  "logical_reasoning_mcqs.md": {
+    "mapping": {
+      "category": "Logic",
+      "difficulty": 2,
+      "active": true
+    },
+    "questions": [
+      {
+        "stem": "Complete the series: 4, 18, 48, 100, 180, 294, ?",
+        "options": [
+          "448",
+          "412",
+          "420",
+          "460"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Complete the series: 2, 12, 36, 80, 150, ?",
+        "options": [
+          "252",
+          "240",
+          "210",
+          "270"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "If 'MASTER' is coded as 'N1V121', how is 'SMART' coded under the same logic?",
+        "options": [
+          "T1N18U",
+          "T1N9U",
+          "U2N18V",
+          "T1M9U"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "If 'SYSTEM' is coded as 'SYSMET' and 'NEARER' as 'AENRER', how is 'FRACTION' coded?",
+        "options": [
+          "CARFNOIT",
+          "CARFTION",
+          "ARFCNOIT",
+          "CARFNO TI"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Find the odd pair: (12, 144), (13, 169), (15, 225), (14, 198)",
+        "options": [
+          "(14, 198)",
+          "(12, 144)",
+          "(13, 169)",
+          "(15, 225)"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "What is the next term: 1, 2, 6, 24, 120, 720, ?",
+        "options": [
+          "5040",
+          "4320",
+          "5760",
+          "3600"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Find the odd one out: AP, BQ, CR, DS, EV, FW",
+        "options": [
+          "EV",
+          "DS",
+          "CR",
+          "BQ"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "If $11\\times11=4$, $22\\times22=16$, then $33\\times33=?$",
+        "options": [
+          "36",
+          "64",
+          "81",
+          "18"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Find the odd number: 343, 512, 729, 1000, 1225",
+        "options": [
+          "1225",
+          "729",
+          "512",
+          "343"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Analogy: Clock : Second :: Calendar : ?",
+        "options": [
+          "Day",
+          "Month",
+          "Year",
+          "Date"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Man facing North turns $135^{\\circ}$ clockwise, then $225^{\\circ}$ anti-clockwise. Which direction is he facing now?",
+        "options": [
+          "West",
+          "South-West",
+          "North-West",
+          "South"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Pointing to a photograph, A says \"She is daughter of the only son of my grandfather\". Relation of girl to A:",
+        "options": [
+          "Sister",
+          "Cousin",
+          "Niece",
+          "Daughter"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "If 15th August 2019 was Thursday, what day was 15th August 2020?",
+        "options": [
+          "Saturday",
+          "Friday",
+          "Sunday",
+          "Monday"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Mother of P is daughter of Q's father. How is Q related to P?",
+        "options": [
+          "Maternal Uncle / Aunt",
+          "Father",
+          "Brother",
+          "Cousin"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Walk 5 km West, turn $90^{\\circ}$ left walk 12 km. Shortest distance to starting point:",
+        "options": [
+          "13 km",
+          "17 km",
+          "15 km",
+          "11 km"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Introduce a man: \"His wife is the only daughter of my father\". How is woman related to man?",
+        "options": [
+          "Wife",
+          "Sister",
+          "Mother",
+          "Daughter"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Walk 8 km East, turn $45^{\\circ}$ left walk 4 km. Final direction relative to start:",
+        "options": [
+          "North-East",
+          "North",
+          "East",
+          "South-East"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Walk 12 km North, 5 km West, 12 km South. Distance to start:",
+        "options": [
+          "5 km",
+          "10 km",
+          "12 km",
+          "0 km"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "Sister of my father's wife is my:",
+        "options": [
+          "Aunt",
+          "Mother",
+          "Sister",
+          "Cousin"
+        ],
+        "correct": 0
+      },
+      {
+        "stem": "P is faster than Q, Q is faster than R. Fastest person:",
+        "options": [
+          "P",
+          "Q",
+          "R",
+          "Cannot say"
+        ],
+        "correct": 0
+      }
+    ],
+    "count": 20
+  }
+}
