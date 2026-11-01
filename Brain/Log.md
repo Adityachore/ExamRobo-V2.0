@@ -29,6 +29,19 @@
   (5,585 files). `archive/`, `*.sql.gz` and `.zcode/` are gitignored.
 - **Audit report written:** `AUDIT_FINAL_REPORT.md` (5 empty placeholder audit
   files removed). **Next:** commit the baseline and backfill the v3 assets.
+- **Baseline and ops adopted:** `release/final` from `ui/redesign`; `6fe8a3e`
+  (88 files) then `0552d30` (v3 `DEPLOY.md`, import tooling, `docs/`, root
+  `.env.example`). Production compose and Cloudflare nginx landed in `4676544`,
+  code fixes in `8285b6f`. The seed event now derives `section_limits` evenly
+  across its categories (60 min / 3 → 20 min per section).
+- **Bank importer built.** `server/scripts/import-bank.mjs` parses all 1100
+  blocks, maps 11 domains to taxonomy categories and the locked difficulty
+  scale (Basic 1 / Medium 3 / High 5), and imports under
+  `source_key = examrobo-bank:<ID>` so the 275 intentional repeated stems are
+  kept as distinct rows. `--dry-run` reports 1100 / 100 per domain /
+  330-715-55 / 4 options. Migrations `011` (rename the stray `Cyber Security`
+  category) and `012` (nullable `source_key` + partial unique index) make the
+  importer idempotent. **Next:** real import, then verify.
 
 ## 2026-10-28 (target migration, results visibility, paper timing)
 

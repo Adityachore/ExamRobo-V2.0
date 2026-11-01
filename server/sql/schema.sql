@@ -73,6 +73,7 @@ CREATE TABLE questions (
   skill_id uuid REFERENCES skills(id) ON DELETE SET NULL,
   difficulty int NOT NULL DEFAULT 3 CHECK (difficulty BETWEEN 1 AND 5),
   active boolean NOT NULL DEFAULT true,
+  source_key text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -260,6 +261,7 @@ CREATE INDEX idx_papers_event ON papers (event_id, email);
 CREATE INDEX idx_papers_started ON papers (started_at DESC);
 CREATE INDEX idx_papers_last_seen ON papers (last_seen_at);
 CREATE INDEX idx_questions_skill ON questions (skill_id);
+CREATE UNIQUE INDEX idx_questions_source_key ON questions (source_key) WHERE source_key IS NOT NULL;
 CREATE INDEX idx_paper_questions_skill ON paper_questions (skill_id);
 CREATE INDEX idx_paper_questions_difficulty ON paper_questions (difficulty);
 CREATE INDEX idx_paper_sections_paper ON paper_sections (paper_id, position);

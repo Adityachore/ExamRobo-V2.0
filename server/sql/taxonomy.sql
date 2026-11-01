@@ -56,7 +56,7 @@ INSERT INTO skills (code, name, category, description) VALUES
   ('full_stack_architecture', 'Full-Stack Architecture', 'Full Stack', 'Connecting the frontend, backend and data layer into one product.'),
   ('ml_foundations', 'Machine Learning Foundations', 'AI and ML', 'How models learn from data and where they fail.'),
   ('llm_integration', 'LLM Integration', 'LLM', 'Using a language model as a component in a product.'),
-  ('security_fundamentals', 'Security Fundamentals', 'Cyber Security', 'Core threats, controls and secure defaults.'),
+  ('security_fundamentals', 'Security Fundamentals', 'Cybersecurity', 'Core threats, controls and secure defaults.'),
   ('devops_pipelines', 'DevOps Pipelines', 'DevOps', 'Build, test, release and operate software.'),
   ('field_marketing', 'Field Marketing', 'On-Field Marketing', 'Events, local campaigns and direct customer contact.'),
   ('business_analysis', 'Business Analysis', 'Business & Data Analyst', 'Requirements, processes and business decisions.'),

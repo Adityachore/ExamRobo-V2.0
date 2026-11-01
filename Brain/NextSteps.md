@@ -261,13 +261,13 @@ Plan approved by the user; `Brain/` is the communication medium.
 | ID | Req | Task | Agent | Depends On | Status |
 |---|---|---|---|---|---|
 | T-1501 | - | Freeze and archive: audit all trees, move `examrobo-3`/`examrobo-6` to `archive/versions/`, copy DB dumps to `archive/db/`, SHA256 manifest, consolidate audit placeholders | senior-devops-engineer-agent | - | [X] COMPLETED — 5,585 files hashed; `AUDIT_FINAL_REPORT.md` written |
-| T-1502 | - | Git baseline: branch `release/final`, commit all Phase 16/17 work and deletions, commit lockfiles | senior-devops-engineer-agent | T-1501 | [>] IN PROGRESS |
-| T-1503 | - | Backfill v3 assets: `server/DEPLOY.md`, `import_questions.js`, `imported_questions.json`, `_target_archive/007-009`, root `.env.example`, `docs/` content pack | senior-backend-engineer-agent | T-1502 | [ ] PENDING |
-| T-1504 | - | Adopt v3 production compose (`env_file`, `DB_PASSWORD`, `127.0.0.1:8083`, healthchecks) and Cloudflare-aware nginx | senior-devops-engineer-agent | T-1503 | [ ] PENDING |
-| T-1505 | - | Align `README.md` and `DEPLOY.md` with the single port, env naming and Cloudflare prerequisite | reference-agent | T-1504 | [ ] PENDING |
-| T-1506 | R-005,R-020 | Code fixes: seed `section_limits`, env-driven bcrypt rounds, legacy-recorder comment cleanup, option-order analytics regression test | senior-backend-engineer-agent | T-1505 | [ ] PENDING |
-| T-1507 | R-010 | Add `import-bank.mjs`: parse the 1100-question markdown, map domain/skill/difficulty, idempotent `--dry-run`/`--replace` | senior-backend-engineer-agent | T-1506 | [ ] PENDING |
-| T-1508 | R-010 | Normalize `Cyber Security`/`Cybersecurity`, import the full bank, validate 1100 / 100-per-domain / 330-715-55 / 4 options | senior-backend-engineer-agent | T-1507 | [ ] PENDING |
+| T-1502 | - | Git baseline: branch `release/final`, commit all Phase 16/17 work and deletions, commit lockfiles | senior-devops-engineer-agent | T-1501 | [X] COMPLETED — `6fe8a3e` |
+| T-1503 | - | Backfill v3 assets: `server/DEPLOY.md`, `import_questions.js`, `imported_questions.json`, `_target_archive/007-009`, root `.env.example`, `docs/` content pack | senior-backend-engineer-agent | T-1502 | [X] COMPLETED — `0552d30` |
+| T-1504 | - | Adopt v3 production compose (`env_file`, `DB_PASSWORD`, `127.0.0.1:8083`, healthchecks) and Cloudflare-aware nginx | senior-devops-engineer-agent | T-1503 | [X] COMPLETED — `4676544`, `docker compose config` OK |
+| T-1505 | - | Align `README.md` and `DEPLOY.md` with the single port, env naming and Cloudflare prerequisite | reference-agent | T-1504 | [X] COMPLETED — `4676544` |
+| T-1506 | R-005,R-020 | Code fixes: seed `section_limits`, env-driven bcrypt rounds, legacy-recorder comment cleanup, option-order analytics regression test | senior-backend-engineer-agent | T-1505 | [X] COMPLETED — `8285b6f`; 158 unit tests, web build clean |
+| T-1507 | R-010 | Add `import-bank.mjs`: parse the 1100-question markdown, map domain/skill/difficulty, idempotent `--dry-run`/`--replace` | senior-backend-engineer-agent | T-1506 | [X] COMPLETED — dry run 1100 / 100-per-domain / 330-715-55 |
+| T-1508 | R-010 | Normalize `Cyber Security`/`Cybersecurity`, import the full bank, validate 1100 / 100-per-domain / 330-715-55 / 4 options | senior-backend-engineer-agent | T-1507 | [>] IN PROGRESS — migrations 011/012 written; real import awaits the Docker daemon |
 | T-1509 | - | Full verification: `docker compose up -d --build`, migrate, seed, `npm run verify` (four phases PASS), web build | critique-agent | T-1508 | [ ] PENDING |
 | T-1510 | R-020,R-040 | Browser click-through 320/390/tablet/1280: login, waiting, domain picker, sections, calculator, submit, result, admin CRUD | critique-agent | T-1509 | [ ] PENDING |
 | T-1511 | - | Documentation sync: PRD/TRD/Schema/Flow/Design, `Start`, `Project`, `Project_Guide`, `compact`, rotate log if needed | memory-agent | T-1510 | [ ] PENDING |
