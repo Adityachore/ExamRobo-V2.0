@@ -1,16 +1,18 @@
 {
   "name": "examrobo-server",
-  "version": "0.1.0",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
     "test": "node --test",
     "seed": "node scripts/seed.js",
+    "seed:full": "node scripts/seed.js && node scripts/import-bank.mjs",
     "migrate": "node scripts/migrate.js",
     "create-admin": "node scripts/create-admin.mjs",
     "import-bank": "node scripts/import-bank.mjs",
     "smoke": "node smoke.mjs",
+    "load": "node scripts/load.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "dependencies": {

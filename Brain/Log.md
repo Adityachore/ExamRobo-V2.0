@@ -1,5 +1,17 @@
 # ExamRobo Log
 
+## 2026-11-01 (v1.5.0 release)
+
+- **Phase 19 committed** in `e0a6c4e` on `release/final`: event archive, incident
+  grouping, section rail, bounded submit path, load safety and the Cloudflare
+  host-proxy runbook.
+- **Versions aligned**: `Brain/VERSION`, `server/package.json` and
+  `web/package.json` (and their lockfile roots) are `1.5.0`.
+- **Release pushed**: `release/final` and `main` are identical, annotated tag
+  `v1.5.0` points at the release commit.
+- **Handoff gaps, stated honestly**: the browser click-through (T-1521) and the
+  real 50-VU k6 run (T-1518) are still pending; neither blocks a deploy.
+
 ## 2026-11-01 (exam-day issues batch, Phase 19)
 
 - **Parity first, then only three v6 ideas.** The current runner matched
