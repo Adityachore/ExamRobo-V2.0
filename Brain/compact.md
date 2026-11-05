@@ -1,7 +1,7 @@
 # ExamRobo — Project Profile
 
 ## Agent Version
-v1.4.0 (`Brain/VERSION`)
+v1.5.0 (`Brain/VERSION`)
 
 ## Detected Stack
 - Website-first proctored exam platform (Phase 1 = website only, any OS)
@@ -9,13 +9,23 @@ v1.4.0 (`Brain/VERSION`)
 - Frontend: React 19 + Vite 8 + Tailwind v4 + React Router 7 + lucide-react
 - DB: PostgreSQL 16 (Docker Compose, db port remapped 5450→5432 — local 5432 owned by hsk-pg)
 - Cache/bus: Redis 7 (optional — the API runs single-instance without it)
-- Deploy target: user's online server (Phase 7)
+- Deploy target v1.5: user's online server (Phase 7). v2.0: India-region managed
+  Postgres + two stateless API instances + Redis; provider chosen after gate G1.
 
 ## Structure
 - `server/` — Express API: `routes/` (auth, student, tickets, exam, admin, bank), `services/` (paper, grading, views, live, sessions, lockout, redis, integrity, competency, analytics), `middleware/` (auth, security, async), `scripts/` (seed, migrate, verify, waitfor, scratch-db), `sql/schema.sql` + `sql/migrations/` + `sql/taxonomy.sql` + `sql/backfill.sql`, `smoke.mjs`, `load/k6.js`
 - `web/` — white-theme SPA (Login, Waiting, Exam with Calculator, Result + admin: Events, Live, Results, Flags, Tickets, Bank) — `/api` and `/ws` proxied by Vite (dev) and nginx (prod)
 - `docker-compose.yml` — db (5450) + redis (6379) + api (4000) + web (8080)
 - `..\Exam-Robo-TestLab\` — the test bench next to the app: start/stop/reset/status/check/scenario/collect, 52 automated checks, manual checklist, API reference, diagnostics collector
+
+## Skills
+- **graphify** — codebase knowledge graph. Source: `Brain/skills/graphify/SKILL.md`
+  (project cache, registered for opencode via `opencode.json` →
+  `skills.paths`). CLI: `graphifyy` v0.9.102 (`uv tool install graphifyy`;
+  binaries in `C:\Users\Asus\.local\bin`). Use for onboarding/architecture
+  questions, pre-change impact analysis, PR blast-radius checks, and exploring
+  `server/services/` + `routes/` relationships. Do not use when the exact
+  file/symbol is already known — grep/read is faster.
 
 ## Denied Rules / Locked Decisions
 - Website only Phase 1 — no desktop app. **Changed 2026-10-21:** a Windows lockdown
@@ -35,6 +45,40 @@ v1.4.0 (`Brain/VERSION`)
 - `display_change` is a warning only — it never raises a MISCONDUCT flag itself
 - `second_window` and `second_session` are mutually exclusive — one mistake never
   costs two strikes
+
+### Phase 20 (v2.0 SaaS) — locked decisions (2026-11-05)
+- Multi-tenant; forced Postgres RLS; the app role never has `BYPASSRLS`.
+- Institution at `slug.examrobo.com`; Super Admin at `admin.examrobo.com`.
+- Staff: one institution per principal; owner + multiple admins + employees;
+  owner transfer only by Super Admin.
+- Staff auth: password; Admin sets a 24h temp password; forced change.
+- Super Admin: password + WebAuthn; two accounts + backup codes.
+- Student auth: email OTP / magic link; unique email per student; one institution
+  per student; no self-registration.
+- OTP fallback: invigilator-issued one-time PIN, 15-min expiry, audited.
+- Taxonomy and bank are per institution; the 1100-question pack is imported on
+  request; papers keep frozen copies.
+- New API under `/api/v2`; existing exam routes stay backward compatible.
+- Release scope: institutions + exams; **no billing** in v2.0.
+- Limits: 5 active events, 500 students/event, 50 concurrent per institution,
+  1000 total platform-wide.
+- Admission: warn at 80%, hard block new starts at 100%, never interrupt live exams.
+- Sessions: 15-min access + 7-day rotating refresh.
+- Plan expiry: optional date; auto-deactivate; deferred until live papers end (max 24h).
+- Closure: deactivate, retain data; manual purge only, annual review.
+- Purge (Super Admin only): students, bank, results; keep staff/institution/audit.
+- Export: Admin results only; Super Admin full archive before purge.
+- Minors: institution is controller; platform is processor; no DOB by default.
+- Legacy: internal non-public institution `ParaRobo`; oldest admin -> owner, rest
+  -> employees.
+- Student transfer: new account at the new institution; old principal deactivated;
+  old data stays.
+- Exam history / top-N: deferred to v2.1.
+- Hosting: India region, managed Postgres + 2 API + Redis; provider after G1.
+- Roster import: valid rows import, errors reported; event cannot start until the
+  Admin acknowledges errors; re-import is idempotent.
+- Email: platform sender (`no-reply@examrobo.com`) + institution Reply-To.
+- Pending institution: status-only access until Super Admin approval.
 
 ## Key Technical Truths
 - The paper row **is** the exam session: one `papers` row per (event, student).
@@ -140,20 +184,27 @@ v1.4.0 (`Brain/VERSION`)
   array, so two events cannot leak a chosen domain into each other.
 
 ## Verified (current)
-- **2026-10-26:** `cd server && npm run verify` passes all four phases after the
-  Phase 16 work: preflight PASS, 131 unit tests PASS, web build PASS,
-  156/156 smoke assertions PASS.
-- Prior green baseline: `npm run verify` all four phases (90/90 unit,
-  96/96 smoke), Test Lab 52/52 through nginx, and the live analytics proof
-  (`students=4 analysed=4`, weakest skill first).
-- `Brain/NextSteps.md` T-1309 is COMPLETED; the earlier Docker block was cleared
-  by starting Docker Desktop.
+- **2026-11-01 (v1.5.0, Phase 19):** `cd server && npm run verify` green on the
+  release machine: preflight PASS, 161 unit tests PASS, web build PASS,
+  187/187 smoke assertions PASS.
+- Prior green baseline: 2026-10-26 (Phase 16), 131 unit / 156 smoke.
+- Older baseline: 90/90 unit, 96/96 smoke; Test Lab 52/52 through nginx; live
+  analytics proof (`students=4 analysed=4`, weakest skill first).
+- `Brain/NextSteps.md` T-1309 is COMPLETED.
+- **2026-11-05:** baseline docs corrected (migrations 001-013, v1.5.0 counts,
+  18 domain tables + ledger); lockfiles restored. The local verify re-run has no
+  Postgres/Redis, so preflight and smoke are reported SKIPPED, not green.
 
 ## Open
-- The user still has to click through the redesigned candidate/domain/admin UI
-  in a browser (T-813, T-1039, T-1109); the API level is verified.
-- Capacity work (T-702/T-814) remains pending on the k6 summary, first-failure
-  lines and the cloud VM specs; `server/load/k6.js` still lacks WS scenarios.
+- T-1521 browser click-through (four submit paths + archived-event UI) and
+  T-1518 real 50-VU k6 run are still pending; neither blocks a v1.5 deploy.
+- T-1513 v1.5 production cutover is **superseded** by v2.0/Phase 20; v1.5 stays
+  the rollback baseline.
+- `server/.env` has a stale DB password and the live DB has no exam event;
+  re-check both before any live migration.
+- Phase 20 external inputs: hosting provider (after G1), SMTP host/credentials +
+  SPF/DKIM/DMARC, legal DPA/privacy/terms + minors attestation, legacy
+  email-collision report (needs the live DB), RPO/RTO targets.
 - Live-run scripts must use a **fresh event and a fresh roster address** each
   time: an expired event refuses the login ("This email is not eligible for
   this exam") and every failed login costs a lockout attempt (3 → 15 min block).

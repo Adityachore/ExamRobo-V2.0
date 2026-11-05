@@ -31,7 +31,7 @@ The integrity manifest for the archive is `archive/MANIFEST.sha256`
 
 ## Migration lineage
 
-The final tree uses migrations `001`–`010`:
+The final tree uses migrations `001`–`013`:
 
 | File | Purpose |
 |---|---|
@@ -45,6 +45,9 @@ The final tree uses migrations `001`–`010`:
 | `008_sequential_sections_results.sql` | sequential section engine, resume/restart |
 | `009_option_orders.sql` | persisted per-paper option order |
 | `010_results_visibility.sql` | result state machine columns |
+| `011_normalize_cybersecurity_category.sql` | normalise the `Cyber Security` taxonomy row |
+| `012_question_source_key.sql` | stable source key for idempotent bank imports |
+| `013_event_soft_delete.sql` | archive events instead of destroying them |
 
 `server/sql/migrations/_target_archive/` holds the target's original
 `007_sections_and_shuffle.sql`, `008_resume_event.sql` and

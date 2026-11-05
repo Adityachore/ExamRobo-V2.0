@@ -11,3 +11,6 @@ archive/
 
 # Agent workspace artifacts.
 .zcode/
+
+# Graphify generated knowledge graph (rebuild with `graphify extract . --code-only`)
+graphify-out/

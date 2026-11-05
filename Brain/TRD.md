@@ -2,9 +2,15 @@
 
 The API is the system of record. This document is the contract the SPA codes
 against; it was derived from the white-theme reference implementation and is
-verified by `server/smoke.mjs` (51 assertions, run by `npm run verify`).
+verified by `server/smoke.mjs` (187 assertions, run by `npm run verify`).
 
-Base URL: `/api`. All request and response bodies are JSON. Screen recording
+> **v2.0 note (Phase 20):** v2.0 adds `/api/v2` for auth/session, institutions,
+> staff, roster and results. The existing `/api` exam routes stay backward
+> compatible. The authoritative v2 contract is
+> `docs/Brain-Phase2-Production-Ready/21-API-CATALOG.md` (plus 03/04/12/13);
+> locked decisions are in `Brain/ProjectReview.md`.
+
+Base URL v1.5: `/api`. All request and response bodies are JSON. Screen recording
 upload and review are disabled; the legacy `recordings` table and files are
 retained but no API writes or serves them.
 

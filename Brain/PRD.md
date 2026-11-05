@@ -2,6 +2,10 @@
 
 Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; coding round = Phase 1.5.
 
+> **v2.0 note (Phase 20):** multi-tenant SaaS requirements R-100..R-137 live in
+> `docs/Brain-Phase2-Production-Ready/01-PRODUCT-REQUIREMENTS.md`. This PRD governs
+> the unchanged v1.5 behavior; locked v2.0 decisions are in `Brain/ProjectReview.md`.
+
 ## Phase 1 — Auth & Scaffolding
 
 ## Requirement R-001 — Email-allowlist login

@@ -7,7 +7,7 @@ the browser, and gets an immediate result. Staff create events, upload the
 roster, watch the exam live, and export the results.
 
 ## What was done
-- **Spec suite**: PRD (R-001..R-070 + R-013 + R-014), Schema (15 tables), TRD (full API contract),
+- **Spec suite**: PRD (R-001..R-070 + R-013 + R-014), Schema (18 domain tables + ledger), TRD (full API contract),
   Design, Flow, NextSteps (93 tasks), Issue ledger, a Phase-2 lockdown agent design.
 - **Backend**: Express 4 + pg + ws + ioredis, ESM, WebSocket telemetry,
   server-side grading, section/paper timing, results visibility, option-order
@@ -17,15 +17,16 @@ roster, watch the exam live, and export the results.
   the in-exam Calculator, and the admin console (Events, Live, Results, Flags,
   Tickets, Bank).
 - **Infrastructure**: docker-compose (PostgreSQL 16, Redis 7, API, nginx),
-  migrations, seed script, a 156-assertion smoke test, k6 load script, runbook,
+  migrations, seed script, a 187-assertion smoke test, k6 load script, runbook,
   and a one-command verification (`npm run verify`) that runs on a scratch
   database and can never touch the live one.
 - **Test bench**: `..\Exam-Robo-TestLab\` — one-click start/stop/reset/status/
   check/scenario/collect scripts, 52 automated checks through nginx, a manual
   click-through checklist, an API quick reference, a troubleshooting guide and a
   diagnostics collector.
-- **Verified**: `npm run verify` green — 111/111 unit tests, 119/119 smoke
-  assertions, clean production build, full stack running on :8080.
+- **Verified**: v1.5.0 (Phase 19) — `npm run verify` green: 161 unit tests,
+  187/187 smoke assertions, clean production build. (Older baseline: 111/111
+  unit, 119/119 smoke.)
 - **Competency model (bank v2)**: a `skills` taxonomy (39 seeded skills) and a
   1–5 difficulty scale; a question states what it measures, and a paper freezes
   its own copy of that competency so re-tagging never rewrites a finished exam.
@@ -60,19 +61,20 @@ web (nginx, :8080)  →  /api, /ws  →  api (Express, :4000)
   compact, NextSteps, Issue, Log, **LockdownAgent**).
 
 ## What remains
-- Exam history and the automatic top-N selection of a student for an exam.
-- Option-order shuffle per student.
-- Browser click-through by the user (the API level is verified).
-- The 1000-VU k6 run (script ready, not executed).
-- Deployment to the user's online server (compose file ready).
+- **v2.0 multi-tenant SaaS (Phase 20)** — see `Brain/ProjectReview.md` and
+  `docs/Brain-Phase2-Production-Ready/`. Baseline freeze first, then gate G1.
+- Browser click-through by the user (T-1521; the API level is verified).
+- The 50-VU k6 run (T-1518; script ready, not executed).
+- v1.5 production cutover (T-1513) is superseded by v2.0; v1.5 is the rollback.
 - Building the Windows lockdown agent (designed, needs six decisions).
 - Two open decisions in `Brain/Issue.md`: the HR auto-flag rule (R-043) and the
   recording retention policy.
+- Deferred to v2.1: exam history, automatic top-N selection, billing.
 
 ## Next steps
-See `Brain/NextSteps.md` — the exam history + top-N selection (the next
-roadmap step), T-702/T-814 (k6 run), T-801/T-802 (decisions), T-813 (browser
-click-through by the user), T-960 (the agent build), then the online deployment.
+See `Brain/NextSteps.md` — Phase 20 (v2.0 SaaS): baseline freeze, G1 security
+proof, tenant schema (migrations 014+), identity/API v2, then privacy/ops/capacity.
+T-1521 and T-1518 remain v1.5 handoff items; neither blocks a deploy.
 
 ## Domain
 coding shared

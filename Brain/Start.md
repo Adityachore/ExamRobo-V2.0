@@ -3,13 +3,15 @@
 ## Project Goal
 Website-first proctored exam platform (Phase 1 = MCQ only, any OS, any browser).
 The Postgres-backed API is the system of record; the white-theme React SPA is
-the client. Deployment target: the user's online server (Phase 7).
+the client. v1.5 runs on the user's online server. v2.0 (Phase 20) targets an
+India-region managed Postgres, two stateless API instances and Redis; the
+provider is chosen after gate G1.
 
 ## Documentation Map
 1. **Start.md**: (You are here) Onboarding map + runbook.
 2. **Brain/PRD.md**: Product requirements (R-001..R-070).
 3. **Brain/TRD.md**: Technical requirements — the API contract, error dialect, WS protocol.
-4. **Brain/Schema.md**: The 13 database tables and their columns.
+4. **Brain/Schema.md**: The 18 domain tables plus the migration ledger.
 5. **Brain/Design.md**: UI layout, palette, component tree, integrity tiers.
 6. **Brain/Flow.md**: Happy paths and failure paths.
 7. **Brain/compact.md**: State snapshot and technical truths.
@@ -17,6 +19,8 @@ the client. Deployment target: the user's online server (Phase 7).
 9. **Brain/Issue.md**: Technical debt and open questions.
 10. **Brain/Log.md**: Decision history.
 11. **Brain/LockdownAgent.md**: The Phase-2 Windows lockdown agent (design only).
+12. **Brain/ProjectReview.md**: v2.0/Phase 20 strategic review, locked decisions and execution blueprint.
+13. **docs/Brain-Phase2-Production-Ready/**: authoritative v2.0 design pack (link, never copy).
 
 ## Core Constraints
 - No hard-deletes on business entities.
@@ -30,12 +34,13 @@ the client. Deployment target: the user's online server (Phase 7).
   decides the tier and the outcome.
 
 ## Current Phase
-Phase 16 — admin controls, section timing and attempt recovery. Events, roster
-and live sessions now have full CRUD; section clocks start when a question is
-opened; resume/restart preserve the audit trail; and removed roster students are
-submitted and locked out while their result is retained. Verification is green:
-`cd server && npm run verify` passes preflight, 131 unit tests, the web build and
-156/156 smoke assertions.
+Phase 19 shipped as **v1.5.0** (event archive, incident grouping, section rail,
+bounded submit path, load safety, Cloudflare host proxy). Phase 20 (v2.0
+multi-tenant SaaS) is active: the baseline is frozen first, then gate G0/G1.
+The authoritative design is `docs/Brain-Phase2-Production-Ready/`; the decision
+register and execution blueprint are in `Brain/ProjectReview.md`.
+Baseline verification at v1.5.0: 161 unit tests, 187/187 smoke assertions and a
+clean web build.
 
 ## Verification — one command
 
@@ -81,7 +86,7 @@ The lab never edits this project — it only drives it through Docker and HTTP.
 
 ### Everything in Docker (recommended)
 ```powershell
-cd C:\Users\Asus\Downloads\examrobo-frontend\Exam-Robo-main
+cd C:\Users\Asus\Desktop\Exam-Robo-main
 docker compose up -d --build          # db (5450), redis (6379), api (4000), web (8080)
 docker compose exec api node scripts/seed.js   # seed data (truncates first)
 ```
@@ -111,7 +116,7 @@ The SPA dev server (`web`: `npm run dev`) proxies `/api` and `/ws` to `:4000`.
 | `docker compose exec db psql -U examrobo -d examrobo` | database shell |
 | `npm run migrate` | apply pending migrations |
 | `npm run seed` | truncate + reseed (destructive, manual) |
-| `node smoke.mjs` | 156-assertion end-to-end check — needs `DATABASE_URL` to point at a `*_smoke` database, refuses to run otherwise |
+| `node smoke.mjs` | 187-assertion end-to-end check — needs `DATABASE_URL` to point at a `*_smoke` database, refuses to run otherwise |
 | `k6 run server/load/k6.js` | load test (needs k6 installed) |
 
 ### Environment
