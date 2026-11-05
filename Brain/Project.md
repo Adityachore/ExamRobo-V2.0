@@ -58,7 +58,7 @@ web (nginx, :8080)  →  /api, /ws  →  api (Express, :4000)
 - `web/` — the ported white-theme SPA (`src/` with 27 files), `nginx.conf`,
   `vite.config.js` (dev proxy to :4000).
 - `Brain/` — the documentation set (Start, PRD, TRD, Schema, Design, Flow,
-  compact, NextSteps, Issue, Log, **LockdownAgent**).
+  compact, NextSteps, Issue, Log, **ProjectReview**, **LockdownAgent**).
 
 ## What remains
 - **v2.0 multi-tenant SaaS (Phase 20)** — see `Brain/ProjectReview.md` and

@@ -1,5 +1,35 @@
 # ExamRobo Log
 
+## 2026-11-05 (v2.0 / Phase 20 planning + baseline freeze)
+
+- **Reviewed the 38-file Phase 2 pack** against the actual tree at `b5ddb76`
+  (v1.5.0). Verdict: strong design blueprint, not an executable plan. Brain's
+  baseline was stale (v1.4.0, Phase 16, 131/156, 13 tables, migrations 001-010),
+  and the pack's R-103 still states a `students.email` rule for a `students` table
+  that does not exist. The decision register resolves both.
+- **Baseline frozen** in `3c6518b` on `main`; tag `v1.5.0-baseline`; branch
+  `feat/saas-v2` created. Restored both package locks; kept the graphify
+  `.gitignore`/`opencode.json` setup and the superseded PDF deletion; corrected
+  `docs/VERSIONS.md` to migrations 001-013 and refreshed Start/compact/Project/
+  PRD/TRD.
+- **Locked decisions** (full register in `Brain/ProjectReview.md`): forced RLS
+  with no `BYPASSRLS`; `slug.examrobo.com` + `admin.examrobo.com`; owner/admins/
+  employees; staff password + 24h temp password; Super Admin password + WebAuthn;
+  student email OTP/magic link, unique email, one institution; invigilator PIN
+  fallback; per-institution taxonomy and bank; `/api/v2` with `/api` exam routes
+  compatible; institutions + exams only (no billing); 5 events / 500 students /
+  50 concurrent / 1000 total; 80% warn, 100% block new starts, never interrupt;
+  15-min access + 7-day rotating refresh; expiry deferred until live papers end
+  (max 24h); deactivate + manual purge only; Admin results export / Super Admin
+  full archive; institution is controller, platform processor; `ParaRobo` legacy
+  institution; roster import with acknowledged errors; platform sender + Reply-To;
+  status-only access while pending.
+- **Authorization:** P20.0 baseline only. G1 security proof onward requires a
+  separate approval; T-1513 v1.5 cutover is superseded, v1.5 remains rollback.
+- **Verified:** `npm run verify` -> 161 unit tests PASS, web build PASS,
+  `preflight:postgres` + smoke SKIPPED (localhost:5450 down). G0 stays open until
+  a green run with the stack up.
+
 ## 2026-11-01 (v1.5.0 release)
 
 - **Phase 19 committed** in `e0a6c4e` on `release/final`: event archive, incident

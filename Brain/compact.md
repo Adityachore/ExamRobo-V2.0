@@ -47,6 +47,7 @@ v1.5.0 (`Brain/VERSION`)
   costs two strikes
 
 ### Phase 20 (v2.0 SaaS) — locked decisions (2026-11-05)
+- Full register: `Brain/ProjectReview.md`; pack: `docs/Brain-Phase2-Production-Ready/`.
 - Multi-tenant; forced Postgres RLS; the app role never has `BYPASSRLS`.
 - Institution at `slug.examrobo.com`; Super Admin at `admin.examrobo.com`.
 - Staff: one institution per principal; owner + multiple admins + employees;

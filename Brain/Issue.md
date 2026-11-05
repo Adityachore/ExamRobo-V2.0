@@ -1,5 +1,40 @@
 # Project Issues & Technical Debt Log
 
+## Phase 20 (v2.0 SaaS) — 2026-11-05
+
+Locked decisions and the execution blueprint are in `Brain/ProjectReview.md`;
+the authoritative design is `docs/Brain-Phase2-Production-Ready/`.
+
+### Open — externally blocked
+- Hosting provider + region confirmation (after G1).
+- SMTP host/credentials and SPF/DKIM/DMARC.
+- Legal DPA/privacy/terms + minors attestation.
+- Legacy email-collision report — requires the live DB.
+- RPO/RTO targets.
+- T-1521 browser click-through (v1.5; user action).
+
+### Open — baseline / verification
+- **G0 is not green on this machine.** `npm run verify` -> 161 unit tests and the
+  web build PASS; `preflight:postgres` and the smoke phase are SKIPPED because
+  `localhost:5450` is down. Re-run with the stack up; do not claim G0 until then.
+  → P20-03.
+- `server/.env` has a stale database password; pass `VERIFY_PG_URL` /
+  `VERIFY_REDIS_URL` (host ports 5450 / 6379) for this machine.
+- The live database has no exam event (0 events, 0 papers).
+
+### Accepted risks (v2.0)
+- Partial roster import is allowed, but the event cannot start until the Admin
+  acknowledges the error report. Re-import is idempotent.
+- Plan expiry/closure deactivates; it never deletes. Purge is manual, Super
+  Admin-only, and only after a full archive export. Bank and results are lost.
+- Owner transfer is Super Admin-only; staff cannot self-serve it.
+- One institution per staff principal and per student; a transfer creates a new
+  principal and leaves the old data in place.
+- No billing, no custom domains, no exam history/top-N in v2.0 (v2.1).
+- Student emails are unique per student; shared family inboxes are not supported.
+- Forced RLS assumes every tenant query runs inside a tenant transaction; any
+  future `BYPASSRLS` role would defeat the model. The app role never gets it.
+
 ## Exam-day issues batch (Phase 19) — 2026-11-01
 
 Closed:

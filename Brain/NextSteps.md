@@ -272,7 +272,7 @@ Plan approved by the user; `Brain/` is the communication medium.
 | T-1510 | R-020,R-040 | Browser click-through 320/390/tablet/1280: login, waiting, domain picker, sections, calculator, submit, result, admin CRUD | critique-agent | T-1509 | [>] IN PROGRESS — live stack seeded (event `333eaa54-7c1e-421a-b7a4-c89cf7fddb59`, starts 2026-11-01T16:02:48Z); click-through handed to the user |
 | T-1511 | - | Documentation sync: Phase 19 code, runbook and Brain records | memory-agent | T-1522 | [X] COMPLETED — `Brain/Issue.md`, `Brain/Log.md`, `Brain/NextSteps.md`, `server/DEPLOY.md` |
 | T-1512 | - | Release: bump `Brain/VERSION` to v1.5.0, align package versions, merge `release/final` → `main`, push, tag `v1.5.0` | senior-devops-engineer-agent | T-1511 | [X] COMPLETED — v1.5.0 tagged and pushed; `main` fast-forwarded to `release/final` |
-| T-1513 | - | Production cutover: fresh backup, scratch restore + bridge rehearsal, deploy, post-cutover smoke, rollback ready | senior-devops-engineer-agent | T-1512 | [B] BLOCKED — explicit user approval required |
+| T-1513 | - | Production cutover: fresh backup, scratch restore + bridge rehearsal, deploy, post-cutover smoke, rollback ready | senior-devops-engineer-agent | T-1512 | [X] SUPERSEDED — v2.0/Phase 20 replaces the v1.5 cutover; v1.5 stays the rollback baseline |
 
 ## Phase 19 — Exam-day issues batch (2026-11-01)
 
@@ -290,6 +290,31 @@ recorder, `module_minutes` and v6 `goResult` stay out (see `Brain/Not.md`).
 | T-1520 | R-010 | Import the 1100-question bank and prove it: scratch DB parses 1100 / 11 domains / 0 issues, second run imports 0 and skips 1100; live import after the rebuild | senior-backend-engineer-agent | T-1507,T-1508 | [X] COMPLETED — live: `imported 1100, skipped 0`, 1110 active questions; migration 013 applied and the new API/UI are healthy at `127.0.0.1:8083` |
 | T-1521 | - | Browser click-through of the four submit paths and the archived-event UI | critique-agent | T-1515,T-1517 | [ ] PENDING — needs a browser / the user |
 | T-1522 | - | Re-run `npm run verify` after the batch | critique-agent | T-1514..T-1520 | [X] COMPLETED — preflight, 161 unit tests, web build, 187/187 smoke assertions PASS |
+
+## Phase 20 — v2.0 Multi-tenant SaaS (2026-11-05)
+
+The 38-file design pack is `docs/Brain-Phase2-Production-Ready/`; the decision
+register is `Brain/ProjectReview.md`. Gate order is G0 → G1 → G2 → G3 → G4 → G5.
+**Only G0 (baseline) is authorized. Do not start G1 without explicit approval.**
+
+| ID | Req | Task | Agent | Depends On | Status |
+|---|---|---|---|---|---|
+| P20-01 | - | Baseline freeze: restore lockfiles, keep graphify config + PDF deletion, correct `docs/VERSIONS.md` (001-013) and stale Brain facts | memory-agent | - | [X] COMPLETED — commit `3c6518b`, tag `v1.5.0-baseline`, branch `feat/saas-v2` |
+| P20-02 | - | Decision record: ProjectReview + PRD/TRD pointers + NextSteps/Issue/Log/userRequirement/Not/Later | memory-agent | P20-01 | [X] COMPLETED — this commit |
+| P20-03 | - | G0 gate: re-run `cd server && npm run verify` with Postgres + Redis up | critique-agent | P20-01 | [>] IN PROGRESS — 161 unit + web build PASS; `preflight:postgres` and smoke SKIPPED (localhost:5450 down). Re-run when the stack is up; do not claim green until then |
+| P20-04 | R-101,R-102 | G1 security proof (isolated): DB roles, forced RLS, cross-tenant denial, no runtime `BYPASSRLS` | senior-audit-engineer-agent + senior-backend-engineer-agent | P20-03 | [ ] PENDING — requires explicit approval |
+| P20-05 | R-103..R-110 | Tenant schema: migrations 014+ (institutions, principals, per-institution domains/skills, RLS policies, legacy `ParaRobo` backfill) | senior-backend-engineer-agent | P20-04 | [ ] PENDING |
+| P20-06 | R-111..R-125 | Identity + API v2: staff/super/student auth, `/api/v2`, sessions, OTP/PIN, import, legacy bridge; `/api` exam routes stay compatible | senior-backend-engineer-agent + senior-frontend-engineer-agent | P20-05 | [ ] PENDING |
+| P20-07 | R-126..R-137 | Privacy/ops/capacity: export/purge, retention, India hosting, backup/restore, 80/100% admission, 1000 total cap | senior-devops-engineer-agent + performance-optimization-engineer-agent | P20-06 | [ ] PENDING |
+| P20-08 | - | Gates G2–G5: contract tests, load, migration rehearsal, cutover + rollback | technical-lead-agent | P20-04..P20-07 | [ ] PENDING |
+
+### Phase 20 external inputs (blocking only their gate)
+- Hosting provider + region confirmation (after G1).
+- SMTP host/credentials and SPF/DKIM/DMARC.
+- Legal DPA/privacy/terms + minors attestation.
+- Legacy email-collision report (needs the live DB).
+- RPO/RTO targets.
+- T-1521 browser click-through (v1.5, user action).
 
 ## Phase 1.5 — Coding Round (deferred)
 
