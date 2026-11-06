@@ -2,6 +2,10 @@
 
 > Screen-by-screen blueprint based on the generated light-theme concept collage. Planning only; no project files or business logic are modified.
 
+> **Current-state note:** this is a UI blueprint, not a backend contract. Screen
+> recording is disabled in v1.5; the Recording & Monitoring section below is
+> superseded by the proctor event log.
+
 ![ExamRobo UI concept collage](a_wide_high_resolution_clean_ui_ux_concept_collag.png)
 
 ## How to use this specification
@@ -331,6 +335,9 @@ Treat the collage as the visual north star: airy light surfaces, blue primary ac
 **Acceptance criteria:** Totals and chart values agree with source data; export contains the selected scope; hidden/withheld results are not inferred; all filter controls have a clear reset path.
 
 ### 13. Recording & Monitoring
+
+> **Superseded:** active recording capture/review is removed in v1.5. Use the
+> proctor event log and the Live dashboard; do not build recording playback.
 
 - **Purpose:** Provide an operational overview of recording status and monitoring signals without overwhelming staff or exposing more candidate data than needed.
 - **Role:** Administrator / proctor

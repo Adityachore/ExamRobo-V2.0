@@ -6,8 +6,8 @@
 |---|---|---|
 | Public | Applicants, staff/student login | Common login, institution registration, application status, invite/reset |
 | Super Admin | ExamRobo platform staff | Dashboard, registrations, institutions, plans, revenue, analytics, settings, audit/alerts |
-| Institution Admin | College/school owner | Dashboard, users, students, events, bank, live, results, billing, institution settings, activity |
-| Employee | Institution staff | Students, events, bank, live, results, flags/tickets per permission matrix |
+| Institution Admin | College/school owner (Owner or Admin) | Dashboard, users, students, events, bank, live, results, billing, institution settings, activity |
+| Employee | Institution staff | Students, events, bank, live, results, flags/tickets per permission matrix; no billing |
 | Student | Rostered exam candidate | Existing identify/login, waiting room, exam, submission, own results where allowed |
 
 ## 2. Shared UI rules
@@ -51,11 +51,11 @@ Queue with review status, required fields, verification evidence and abuse signa
 
 ### Institutions
 
-Search/filter by type, state, plan, entitlement and administrative state. Institution detail tabs: overview, plan/billing, usage, users, event summaries, settings, activity. Sensitive support access requires a reason and scope grant.
+Search/filter by type, state, plan, entitlement and administrative state. Institution detail tabs: overview, plan/billing, usage, users, event summaries, settings, activity. Sensitive support access requires a reason, scope grant and institution authorization, or an approved break-glass path.
 
 ### Plans
 
-Compare Trial/Standard/Premium/Elite. Edit drawer shows affected active/future institutions. Explicitly state that edits affect future periods only.
+Compare Trial/Standard/Premium/Elite. Show Trial free/7 days, Standard INR 10,000/30 days and Premium INR 20,000/30 days; treat 18% GST as an unapproved placeholder and do not present a final tax-inclusive price. Elite is contract-only. Edit drawer shows affected active/future institutions; edits affect future periods only.
 
 ### Revenue
 
@@ -70,15 +70,16 @@ Invoice/payment table, mismatch queue, refunds/credit adjustments, monthly/plan 
 - First login: complete profile, set password, confirm institution details, upload logo, invite first employee.
 - Dashboard: existing exam stats plus plan strip, usage bars and upgrade prompt.
 - Students: directory, search, status, paste/CSV import, row-level validation results (`added`, `updated`, `conflict`, `invalid`).
-- Employees: add/invite, disable/enable, role and cap count; Admin only.
+- Employees: add/invite, disable/enable, role and employee-seat count; Owner/Admin only. Exactly one Admin exists; only the Owner creates, replaces or disables the Admin. A pending Admin invitation reserves the single Admin slot.
 - Events/Live/Results/Flags/Tickets/Bank: existing functionality scoped to own tenant.
-- Billing: plan, period, usage, pay/renew/upgrade, invoices, pending payment reconciliation.
-- Institution: profile, contact, brand; Admin only.
+- Billing: plan comparison (Trial/Standard/Premium/Elite), period, usage, pay/renew/upgrade, invoices, pending payment reconciliation; Owner/Admin only.
+- Institution: profile, contact, brand; Owner/Admin only.
 - Activity: audit entries available to the institution without exposing platform-only metadata.
+- Owner transfer is not self-serve; it is Super Admin-only and audited.
 
 ## 6. Student pages
 
-Preserve v1.5 behavior. Add only institution branding and approved privacy notice. Do not add college selection unless a product decision explicitly changes R-103. If shared family email or identity collisions are found, the user cannot be silently assigned to one student record; block onboarding until the identifier policy is resolved.
+Preserve v1.5 behavior. Add only institution branding and approved privacy notice. Do not add college selection. Student identity intends one active individual email per student; shared family/guardian inboxes are rejected; final global uniqueness/backfill awaits the mandatory collision scan. If a legacy identity collision is found, the user cannot be silently assigned to one student record; block onboarding until the collision is resolved. Elite institutions may receive a platform subdomain; Trial/Standard/Premium use the shared path, and custom domains are out of scope.
 
 ## 7. End-to-end workflows
 
@@ -90,7 +91,7 @@ Preserve v1.5 behavior. Add only institution branding and approved privacy notic
 4. Abuse checks produce private reviewer flags and generic public response.
 5. Request enters pending queue.
 6. Super Admin approves with audit reason.
-7. One transaction creates institution, contacts, Admin business row, auth identity, Trial subscription and entitlement.
+7. One transaction creates institution, contacts, Owner business row, auth identity, Trial subscription and entitlement.
 8. Notification outbox queues invite; applicant can set password with one-time token.
 
 ### H2 — Staff manages institution

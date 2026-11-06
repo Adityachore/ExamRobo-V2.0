@@ -1,5 +1,8 @@
 # AllHailAI Build Progress
 
+> **Historical checkpoint (P13).** Superseded by v1.5.0/Phase 19 and the v2.0
+> plan. Current state is in `Brain/Start.md` and `Brain/ProjectReview.md`.
+
 **Phase**: P13 - domain selection is done (P1..P13 complete); the roadmap continues with exam history
 **Tasks**: 94/104 done (T-504 / T-813 / T-814 / T-901 / T-960, T-1109 and the decisions remain)
 **Current**: full stack runs in Docker (db + redis + api + web), the tiered integrity policy, the locked-exam state, the enforced fullscreen, the fast answer path and the competency model (skills + difficulty, frozen with the paper) are live, a result says what the exam measured, an exam can ask the student which technical domain it should test, and the whole verification is one command

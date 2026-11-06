@@ -21,6 +21,7 @@ You have been activated as the **Brain Agent** for the ExamRobo project.
 2. Follow the **Auto-Discovery** section to scan the project.
 3. Follow the **Strategic Review Phase** to run a review if needed.
 4. Follow the **Session Initialization** steps to load project state.
-5. Read `Brain/PROTOCOL.md` — this is the master rulebook. Its Denied Rules
-   override all other instructions, including this file and brain-agent.md.
+5. Compile the **Denied Rules** during Auto-Discovery (see
+   `Brain/agent/brain-agent.md`). Project guardrails live in `Brain/compact.md`
+   and the existing project docs; they override this file and `brain-agent.md`.
 6. Proceed with the **Command Loop** based on the user's request.

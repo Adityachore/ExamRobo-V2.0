@@ -30,8 +30,12 @@ Names are proposed. Map them to the existing configuration system after source i
 | `PASSWORD_PEPPER` or KMS reference | If approved | Additional credential secret | Yes |
 | `OTP_PROVIDER` | Before OTP live | Provider adapter selection | No |
 | `OTP_PROVIDER_KEY` | Before OTP live | SMS provider credential | Yes |
-| `EMAIL_PROVIDER` | Before email live | Provider adapter selection | No |
-| `EMAIL_PROVIDER_KEY` | Before email live | Email provider credential | Yes |
+| `EMAIL_PROVIDER` | Before email live | Hostinger SMTP adapter selection | No |
+| `EMAIL_PROVIDER_KEY` | Before email live | Hostinger SMTP credential | Yes |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | Before email live | Hostinger SMTP endpoint | No |
+| `SMTP_USER` / `SMTP_PASSWORD` | Before email live | Hostinger SMTP credentials | Yes |
+| `EMAIL_FROM` / `EMAIL_REPLY_TO_DOMAIN` | Before email live | Platform sender and institution Reply-To domain | No |
+| `ELITE_BASE_DOMAIN` | Elite subdomain launch | Platform subdomain suffix for Elite only | No |
 | `RAZORPAY_KEY_ID` | Billing | Public provider identifier | Sensitive config |
 | `RAZORPAY_KEY_SECRET` | Billing | Payment API secret | Yes |
 | `RAZORPAY_WEBHOOK_SECRET` | Billing | Signature verification | Yes |

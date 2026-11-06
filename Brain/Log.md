@@ -1,5 +1,107 @@
 # ExamRobo Log
 
+## 2026-11-06 (v2.0 UI-first implementation, contract-only)
+
+- **Approach locked with the user.** Build the UI before the v2 backend; call only
+  `/api/v2` through one endpoint map; missing endpoints show an explicit
+  contract-pending state; no fake product data. Existing v1.5 student and legacy
+  admin screens stay functional until parity. No commit.
+- **Contract layer.** Added `web/src/lib/endpoints.js` (canonical v2 paths +
+  query helper + legacy paths), `web/src/lib/session.js` (UI-only staff/platform
+  session and capability adapter), `web/src/hooks/useApi.js` (unwraps
+  `{ data, meta }`), and `web/src/components/ContractPending.jsx`. Updated
+  `web/src/lib/api.js` with the platform token/profile key and normalized
+  `{ error: string }` / `{ error: { code, message, details } }` handling.
+- **Shells and guards.** Added `AppShell`, `PlatformShell` and
+  `RequireAuth`/`StaffGuard`/`PlatformGuard`/`OwnerOnly`/`ManagersOnly`. Guards
+  are UX-only; the server remains the authorization authority.
+- **Pages.** Created the public/legal/auth flow, the platform console (dashboard,
+  registrations, institutions, plans, revenue, analytics, audit/alerts,
+  settings), the institution workspace (dashboard, onboarding, events/workspace,
+  students/detail, employees, admin, billing, activity, support access,
+  settings), and shared states (404/403, maintenance, plan limit, institution
+  state, offline banner). The 7 inventory screens without drafts use existing
+  v1.5 pages or contract-pending states.
+- **Legacy preservation.** `/`, `/seb`, `/waiting`, `/exam`, `/result`, `/locked`
+  and `/admin/*` remain wired to the existing v1.5 implementation. `/app` and
+  `/platform` are additive; no legacy redirect is enabled before parity.
+- **Two defects found and fixed during wiring.** (1) platform pages initially
+  used the default `admin` token role; all platform reads now pass
+  `useApi(path, 'platform')` and the approve/reject calls pass
+  `role: 'platform'`; (2) Onboarding still navigated with
+  `window.location.assign('/app')`, now uses React Router `navigate`.
+- **Verified:** `cd web && npm run build` -> Vite 8.3.5 clean, 2436 modules,
+  JS `index-9k5f60zW.js` 725.19 kB (gzip 206.88 kB), CSS `index-ae3WU_Jc.css`
+  54.64 kB. Only the existing chunk-size warning remains. No browser click-through
+  yet.
+- **Still open:** G0 is unchanged (Postgres/Redis unavailable on the last known
+  verify attempt); v2 API endpoints are not connected by design; legacy
+  `/admin/*` redirects wait for parity; `docs/phase2/evidence/baseline.md` still
+  does not exist. Brain records updated; changes remain uncommitted.
+
+## 2026-11-06 (v2.0 business/architecture decision lock)
+
+- **Locked:** exactly one Owner and one Admin per institution; employee seats
+  Trial 2 / Standard 5 / Premium 15; pending employee invitations do not consume
+  seats; disabled employees free seats; only the Owner manages the Admin.
+- **Commercial:** Trial free/7 days; Standard INR 10,000/30 days; Premium INR
+  20,000/30 days; monthly only; 18% GST placeholder; refund/cancellation terms
+  remain placeholders; Elite is a contract/licensing scope.
+- **Limits:** 700/300/700 are roster-per-event caps; events/period 10/30/100;
+  absolute ceiling 1000/event, 100 events, 50 concurrent, 20 staff.
+- **Expiry:** no new attempts after entitlement expiry; started attempts finish
+  to the original scheduled end; 15-minute submission/reconnect recovery only;
+  no 24-hour tenant grace.
+- **Support:** restricted default; sensitive access requires institution
+  approval or approved break-glass, scoped, step-up authenticated and audited.
+- **Providers/domains:** Razorpay; Hostinger SMTP; Hostinger VPS plus managed
+  PostgreSQL/Redis/object storage; Elite-only platform subdomain; non-Elite uses
+  the shared path; custom domains out of scope.
+- **Still blocking:** legal/privacy, legacy email-collision scan, CA-approved
+  GST/refund, Elite licensing terms, SMS/DLT, SMTP domain authentication,
+  Razorpay KYC, managed-service region/RPO/RTO.
+- **Docs:** `36-BUSINESS-AND-PRODUCT-DECISION-REGISTER.md` rewritten; Brain and
+  pack cascaded. Docs-only; no code/tests changed; uncommitted by user direction.
+
+## 2026-11-06 (v2.0 decision amendment: billing, plans, SMS, limits)
+
+- **Billing/plans moved into v2.0** by owner decision, overriding the earlier
+  “no billing” baseline. Owner and Admin manage plan/payment/invoices; automated
+  lifecycle and manual Super Admin overrides share one audited service; invoices,
+  payments and credit notes survive tenant purge.
+- **Plan table approved:** Trial 700/10/2, Standard 300/30/5, Premium 700/100/15,
+  Elite contract (students/events/staff). Absolute ceiling: 1000 per event, 100
+  active events, 50 concurrent and 20 staff per institution; staff counts
+  Owner + Admins + Employees.
+- **OTP scope:** email + SMS verify institution/staff contacts. Student exam login
+  stays email OTP/magic link + invigilator PIN because roster records have no
+  phone; student SMS is deferred.
+- **Identity conflicts resolved:** one institution per staff principal; one
+  active individual student email; shared family email rejected. Pack R-103,
+  ADR-IDENTITY-02, R-101, R-106, R-120 and the role matrix were corrected.
+- **Docs aligned:** ProjectReview D-05/D-09/D-15/D-16/D-21/D-27/D-33..D-36,
+  NextSteps/Issue, compact/Project/Not/Later/userRequirement, and the Phase 2
+  pack charter/requirements/billing/API/UX/ADR/dependencies/readiness files.
+  Docs-only; no code or tests changed; uncommitted by user direction.
+- **G0 remains open:** the stack is up, but `npm run verify` was not re-run after
+  this docs pass; no baseline evidence file exists yet.
+
+## 2026-11-06 (documentation truth audit, P0 + P1)
+
+- **Audited 86 project Markdown files** (excluding `Brain/skills/**`,
+  `node_modules` and `archive`) against the v1.5.0 tree. Applied docs-only P0+P1
+  corrections; no code, tests, Phase 2 pack or skills were changed.
+- **P0 facts fixed:** bank import is idempotent on `questions.source_key` (not
+  stem hash); event delete archives and keeps files; section clocks start when
+  the paper is created; retired integrity kinds (`recording_revoked`,
+  `share_surface`) are historical CHECK values only; `removeRecordingDirs`
+  removed from TRD.
+- **P1 indexes fixed:** 18 domain tables + ledger, 48 taxonomy skills, 187 smoke
+  assertions, 38 web source files, 38-file Phase 2 pack, web port 8083, current
+  route/service/test lists, migrations 011-013, and the `app.js`/`index.js`
+  split. Historical documents (audit report, AllHailAI progress, checkpoint,
+  domain plan, UI spec) got explicit supersession banners instead of rewrites.
+
 ## 2026-11-05 (v2.0 / Phase 20 planning + baseline freeze)
 
 - **Reviewed the 38-file Phase 2 pack** against the actual tree at `b5ddb76`
@@ -17,8 +119,10 @@
   employees; staff password + 24h temp password; Super Admin password + WebAuthn;
   student email OTP/magic link, unique email, one institution; invigilator PIN
   fallback; per-institution taxonomy and bank; `/api/v2` with `/api` exam routes
-  compatible; institutions + exams only (no billing); 5 events / 500 students /
-  50 concurrent / 1000 total; 80% warn, 100% block new starts, never interrupt;
+  compatible; institutions + exams only (no billing — **superseded 2026-11-06**);
+  5 events / 500 students / 50 concurrent / 1000 total — **superseded by the plan
+  table and platform ceiling on 2026-11-06**; 80% warn, 100% block new starts,
+  never interrupt;
   15-min access + 7-day rotating refresh; expiry deferred until live papers end
   (max 24h); deactivate + manual purge only; Admin results export / Super Admin
   full archive; institution is controller, platform processor; `ParaRobo` legacy

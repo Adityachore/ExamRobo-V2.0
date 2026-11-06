@@ -36,6 +36,10 @@ If v1.5.0 represents one existing customer/operator environment, create an expli
 
 Run scans for:
 
+- duplicate normalized email values within students;
+- the same normalized email across students, staff, Admins and platform users;
+- the same email across multiple institutions;
+- null, blank, malformed and whitespace/case-variant values;
 - normalized staff/student/login identifiers;
 - per-tenant source keys and question import keys;
 - duplicate event/roster natural keys;
@@ -46,7 +50,7 @@ Run scans for:
 - object-store files without a known tenant/owner;
 - Redis keys and queued jobs without tenant metadata.
 
-Every collision receives a deterministic resolution record before enforcing unique constraints.
+Every collision receives a deterministic resolution record before enforcing unique constraints. No automatic deletion, merge, reassignment or “first row wins.” The email-collision report is read-only, access-controlled and must not contain plaintext credentials.
 
 ## 6. Backfill mechanics
 

@@ -40,7 +40,7 @@ A multi-tenant database is not complete until every table, view, materialized vi
 
 ## 4. Principal and membership model recommendation
 
-Do not force one global unique email onto every student row. Use distinct concepts:
+Keep distinct concepts while applying the approved policy:
 
 - `auth_principals`: one authenticatable human/service identity;
 - `auth_login_identifiers`: verified unique login identifiers mapped to a principal;
@@ -49,9 +49,7 @@ Do not force one global unique email onto every student row. Use distinct concep
 - `students`: institution roster identity, which may not be an authenticatable principal;
 - `student_auth_links`: optional link only where the existing student sign-in flow requires a principal.
 
-A staff member may belong to more than one institution only if product/security owners approve the membership-selection experience. The user selects one of their authorized memberships before tenant context is issued. A student may share guardian contact details; such contact data must not be assumed to be a unique login identifier. If v1.5.0 relies on student email login, preserve it only after collision analysis and an approved deterministic resolution policy.
-
-This recommendation supersedes any assumption that all staff and students must have one globally unique email. Record the approved identity policy in an ADR before migration.
+A staff principal has exactly one institution membership in v2.0; membership selection is out of scope. A student has one active individual email and one institution; shared family/guardian inboxes are rejected. If v1.5.0 relies on student email login, preserve it after the required collision analysis and deterministic resolution. The approved identity policy is D-04/D-10 in `Brain/ProjectReview.md`.
 
 ## 5. Required inventory columns
 

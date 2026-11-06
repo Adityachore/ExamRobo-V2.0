@@ -14,6 +14,10 @@ Never copy production personal data to developer machines. Staging data must be 
 
 ## 2. Infrastructure requirements
 
+Selected direction: Hostinger VPS for API/web/workers, with separate managed PostgreSQL, Redis and object storage. Hostinger SMTP handles transactional email. Exact managed-service providers, VPS region/data residency and capacity remain open. Hostinger shared hosting is not a supported deployment target.
+
+Domain model: only Elite receives a platform subdomain. Trial/Standard/Premium use the shared platform path. Custom domains are out of scope. Configure wildcard DNS/TLS and cookie scope for the Elite subdomain; never use the Host header as the sole tenant authorization source.
+
 Before production, document actual:
 
 - API instance count and autoscaling rules;

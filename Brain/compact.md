@@ -13,9 +13,13 @@ v1.5.0 (`Brain/VERSION`)
   Postgres + two stateless API instances + Redis; provider chosen after gate G1.
 
 ## Structure
-- `server/` — Express API: `routes/` (auth, student, tickets, exam, admin, bank), `services/` (paper, grading, views, live, sessions, lockout, redis, integrity, competency, analytics), `middleware/` (auth, security, async), `scripts/` (seed, migrate, verify, waitfor, scratch-db), `sql/schema.sql` + `sql/migrations/` + `sql/taxonomy.sql` + `sql/backfill.sql`, `smoke.mjs`, `load/k6.js`
-- `web/` — white-theme SPA (Login, Waiting, Exam with Calculator, Result + admin: Events, Live, Results, Flags, Tickets, Bank) — `/api` and `/ws` proxied by Vite (dev) and nginx (prod)
-- `docker-compose.yml` — db (5450) + redis (6379) + api (4000) + web (8080)
+- `server/` — Express API: `routes/` (auth, student, tickets, exam, admin, bank, seb, ws), `services/` (paper, grading, views, live, sessions, lockout, redis, integrity, competency, analytics, attempts, domains, event-config, results, seb, section-flow, ws-tickets), `middleware/` (auth, security, async), `scripts/` (seed, migrate, verify, waitfor, scratch-db), `sql/schema.sql` + `sql/migrations/` + `sql/taxonomy.sql` + `sql/backfill.sql`, `smoke.mjs`, `load/k6.js`
+- `web/` — white-theme SPA. v1.5 student/admin flows preserved. v2 UI-first
+  routes added: `/login`, `/register`, `/application/status`, `/invite/:token`,
+  `/password/recover`, `/platform/*`, `/app/*`, plus legal and system states.
+  `/api` and `/ws` proxied by Vite (dev) and nginx (prod). New v2 screens are
+  contract-only until `/api/v2` lands.
+- `docker-compose.yml` — db (5450) + redis (6379) + api (4000) + web (8083)
 - `..\Exam-Robo-TestLab\` — the test bench next to the app: start/stop/reset/status/check/scenario/collect, 52 automated checks, manual checklist, API reference, diagnostics collector
 
 ## Skills
@@ -49,25 +53,40 @@ v1.5.0 (`Brain/VERSION`)
 ### Phase 20 (v2.0 SaaS) — locked decisions (2026-11-05)
 - Full register: `Brain/ProjectReview.md`; pack: `docs/Brain-Phase2-Production-Ready/`.
 - Multi-tenant; forced Postgres RLS; the app role never has `BYPASSRLS`.
-- Institution at `slug.examrobo.com`; Super Admin at `admin.examrobo.com`.
-- Staff: one institution per principal; owner + multiple admins + employees;
-  owner transfer only by Super Admin.
+- Elite only at `slug.examrobo.com`; Trial/Standard/Premium use the shared
+  platform path; custom domains out of scope. Super Admin at `admin.examrobo.com`.
+- Staff: one institution per principal; exactly one owner, exactly one admin,
+  plus employees; only the owner manages the admin; owner transfer only by
+  Super Admin.
 - Staff auth: password; Admin sets a 24h temp password; forced change.
 - Super Admin: password + WebAuthn; two accounts + backup codes.
-- Student auth: email OTP / magic link; unique email per student; one institution
-  per student; no self-registration.
+- Student auth: email OTP / magic link; unique individual email per active
+  student; one institution per student; shared family/guardian inboxes rejected; no
+  self-registration; final uniqueness/backfill blocked by the collision scan;
+  student SMS OTP is deferred.
 - OTP fallback: invigilator-issued one-time PIN, 15-min expiry, audited.
+- Contact OTP: email + SMS for institution/staff verification.
 - Taxonomy and bank are per institution; the 1100-question pack is imported on
   request; papers keep frozen copies.
 - New API under `/api/v2`; existing exam routes stay backward compatible.
-- Release scope: institutions + exams; **no billing** in v2.0.
-- Limits: 5 active events, 500 students/event, 50 concurrent per institution,
-  1000 total platform-wide.
+- Release scope: institutions + exams + billing/plans in v2.0.
+- Plan table: Trial free/7 days, 700 roster per event/10 events/2 employees;
+  Standard INR 10,000/30 days, 300/30/5; Premium INR 20,000/30 days, 700/100/15;
+  Elite contract/licensing. Monthly only; 18% GST is a placeholder until CA
+  approval; refund terms remain placeholders. Exactly one Owner and one Admin;
+  Owner/Admin are outside the employee cap. Absolute ceiling: 1000 per event,
+  100 active events, 50 concurrent and 20 staff per institution; pending employee
+  invitations do not consume seats and disabled staff free seats.
 - Admission: warn at 80%, hard block new starts at 100%, never interrupt live exams.
 - Sessions: 15-min access + 7-day rotating refresh.
-- Plan expiry: optional date; auto-deactivate; deferred until live papers end (max 24h).
+- Billing: Owner/Admin manage plan, payment and invoices; automated lifecycle
+  plus manual Super Admin overrides through one audited service; reconciler is
+  the sole entitlement writer.
+- Plan expiry: no new attempts; started attempts finish to the original scheduled
+  end; 15-minute submission/reconnect recovery only, with no extra answer time.
 - Closure: deactivate, retain data; manual purge only, annual review.
-- Purge (Super Admin only): students, bank, results; keep staff/institution/audit.
+- Purge (Super Admin only): students, bank, results; keep staff/institution/audit;
+  retain invoices, payments and credit notes.
 - Export: Admin results only; Super Admin full archive before purge.
 - Minors: institution is controller; platform is processor; no DOB by default.
 - Legacy: internal non-public institution `ParaRobo`; oldest admin -> owner, rest
@@ -75,7 +94,9 @@ v1.5.0 (`Brain/VERSION`)
 - Student transfer: new account at the new institution; old principal deactivated;
   old data stays.
 - Exam history / top-N: deferred to v2.1.
-- Hosting: India region, managed Postgres + 2 API + Redis; provider after G1.
+- Hosting: Hostinger VPS for API/web/workers plus separate managed Postgres,
+  Redis and object storage; region/providers/RPO/RTO open. Razorpay and
+  Hostinger SMTP selected; SMS provider open.
 - Roster import: valid rows import, errors reported; event cannot start until the
   Admin acknowledges errors; re-import is idempotent.
 - Email: platform sender (`no-reply@examrobo.com`) + institution Reply-To.
@@ -166,7 +187,7 @@ v1.5.0 (`Brain/VERSION`)
   the sum of their limits; select events use the common part plus the largest
   allowed combination. Each select student's paper deadline is their own common
   part plus the limits of the sections they chose.
-- **A section clock starts when its first question is opened.** An expired
+- **A section clock starts when the paper is created.** An expired
   section locks only itself; the rest of the paper and the overall deadline stay
   live. Expired-section answers and question opens are refused with
   `code: 'section_expired'`.
@@ -185,6 +206,9 @@ v1.5.0 (`Brain/VERSION`)
   array, so two events cannot leak a chosen domain into each other.
 
 ## Verified (current)
+- **2026-11-06 (v2 UI-first):** `cd web && npm run build` clean — Vite 8.3.5,
+  2436 modules, JS 725.19 kB (gzip 206.88 kB), CSS 54.64 kB; only the existing
+  chunk-size warning. Browser click-through is still pending.
 - **2026-11-01 (v1.5.0, Phase 19):** `cd server && npm run verify` green on the
   release machine: preflight PASS, 161 unit tests PASS, web build PASS,
   187/187 smoke assertions PASS.
@@ -197,6 +221,13 @@ v1.5.0 (`Brain/VERSION`)
   Postgres/Redis, so preflight and smoke are reported SKIPPED, not green.
 
 ## Open
+- G0 remains open: the latest known `npm run verify` could not reach Postgres/
+  Redis (`ECONNREFUSED`), so preflight and smoke are not green. No baseline
+  evidence file exists yet.
+- v2 UI routes are built but contract-only; `/api/v2` is not implemented and
+  legacy `/admin/*` routes stay active until parity/cutover.
+- P20-UI-09 browser click-through (public/platform/institution at 320/390/
+  tablet/1280) is pending and needs a browser/user.
 - T-1521 browser click-through (four submit paths + archived-event UI) and
   T-1518 real 50-VU k6 run are still pending; neither blocks a v1.5 deploy.
 - T-1513 v1.5 production cutover is **superseded** by v2.0/Phase 20; v1.5 stays

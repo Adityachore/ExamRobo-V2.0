@@ -28,9 +28,11 @@ Reason: Record of rejected ideas to prevent regression.
 - **NO runtime `BYPASSRLS`.** The app role never gets it; forced RLS is the model.
 - **NO automatic deletion on plan expiry or closure.** Deactivate and retain;
   purge is manual, Super Admin-only, after a full archive export.
-- **NO purging staff, institution or audit rows.** Only students, bank and results
-  are purged.
-- **NO billing, custom domains or exam history/top-N in v2.0.** Deferred to
-  v2.1 (see `Brain/Later.md`), not silently added.
+- **NO purging staff, institution, audit or billing rows.** Only students, bank
+  and results are purged; invoices/payments/credit notes are retained.
+- **NO billing access for Employees, no custom domains or exam history/top-N in
+  v2.0.** Owner/Admin manage billing; the rest is deferred (see `Brain/Later.md`).
+- **NO student SMS OTP in v2.0.** SMS verifies institution/staff contacts; roster
+  data has no phone.
 - **NO active student email at two institutions.** One institution at a time;
   the email becomes reusable only after the old principal is deactivated.

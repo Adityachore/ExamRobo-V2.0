@@ -21,8 +21,9 @@ The Phase 2 outcome is a tenant platform in which:
 | Actor | Scope |
 |---|---|
 | Super Admin | ExamRobo platform operations: institution approval, plans, billing operations, global KPIs and restricted support actions |
-| Admin | Own institution profile, billing, staff, students, events, question bank and results |
-| Employee | Own institution exam operations within the fixed permission matrix |
+| Owner | Institution ownership and billing: plan, payment, invoices, staff, students, events, question bank and results; one Owner per institution |
+| Admin | Exactly one per institution. Own institution operations and billing: staff, students, events, question bank, live, results and plan/payment. The Owner creates/replaces/disables the Admin. |
+| Employee | Own institution exam operations within the fixed permission matrix; no billing or staff administration |
 | Student | Exam participation using the existing roster-based student flow |
 
 One shared PostgreSQL database is the v2.0.0 tenancy model. Database-per-tenant is out of scope for the standard SaaS plan. Elite client-hosted licensing remains a later, separately designed product.
@@ -40,18 +41,20 @@ Unless a formally approved requirement says otherwise, Phase 2 must preserve:
 - existing API response shapes, adding fields rather than silently removing or renaming them;
 - existing support and deployment workflows where they remain applicable.
 
-## 4. Plans (commercial values are proposals until signed off)
+## 4. Plans (approved catalogue; live invoicing still gated)
 
-| Plan | Duration | Base price (ex-GST) | Students/event | Events/period | Employees |
-|---|---:|---:|---:|---:|---:|
-| Trial | 7 days | Free | 700 | 10 | 2 |
-| Standard | 30 days | ₹10,000 | 300 | 30 | 5 |
-| Premium | 30 days | ₹20,000 | 700 | 100 | 15 |
-| Elite | Contract | Contract | Unlimited/custom | Unlimited/custom | Custom |
+| Plan | Duration | Base price (ex-GST) | Roster/event | Events/period | Employee seats | Admin seats |
+|---|---:|---:|---:|---:|---:|---:|
+| Trial | 7 days | Free | 700 | 10 | 2 | 1 |
+| Standard | 30 days | ₹10,000 | 300 | 30 | 5 | 1 |
+| Premium | 30 days | ₹20,000 | 700 | 100 | 15 | 1 |
+| Elite | Contract | Contract | Contract | Contract | Contract | 1 |
 
-Premium mobile app access is a feature flag only in this phase. Elite is contract metadata only; client-hosted licensing is not implemented.
+Exactly one Owner and one Admin per institution. Owner and Admin are outside the employee cap. Pending employee invitations do not consume seats; disabled employees free seats. The absolute platform ceiling remains 1000 roster/event, 100 active events, 50 concurrent exams and 20 staff accounts per institution, counting the Owner, Admin and active employees.
 
-GST rate, invoice wording, place-of-supply logic, refund policy and plan terms require business-owner and CA confirmation. Never ship an assumed value as a production decision.
+Standard and Premium are monthly 30-day plans in v2.0; annual plans and proration are out of scope. Premium mobile app access is a feature flag only. Elite is contract metadata only; client-hosted licensing is a separate future scope.
+
+The 18% GST value is a placeholder only. GST rate, invoice wording, place-of-supply logic, refund policy and plan terms require CA/business approval; never issue a live invoice from unapproved values.
 
 ## 5. Architecture principles
 
@@ -74,7 +77,7 @@ GST rate, invoice wording, place-of-supply logic, refund policy and plan terms r
 - Cross-college question sharing.
 - Per-employee custom permission toggles.
 - Impersonation of institution users.
-- White-label custom domains.
+- White-label custom domains; the Elite-only platform subdomain is the scoped exception.
 - Razorpay autopay / UPI mandates unless a later approved scope adds it.
 - Multi-currency billing, annual plan/proration and mid-period price recalculation.
 - Reintroducing screen recording.

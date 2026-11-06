@@ -53,7 +53,7 @@ Administrative `admin_state` is managed by institution administration and never 
 
 | Event | Required behavior |
 |---|---|
-| Approval | Create Trial period and entitlement in one transaction; first admin invite is queued |
+| Approval | Create Trial period and entitlement in one transaction; first Owner invite is queued |
 | Paid new subscription | Verify provider payment and invoice; create active period if no future/active period; reconcile |
 | Early renewal | Create `scheduled` period with `starts_at = current.ends_at`; do not end the current period early |
 | Exact boundary | Reconciler expires old period and activates scheduled successor in one institution-locked transaction; no gap |
@@ -63,7 +63,7 @@ Administrative `admin_state` is managed by institution administration and never 
 | Refund | Payment state changes through provider event; period effect follows approved refund policy and audited action |
 | Suspension | Set administrative state; entitlement timeline remains intact; access policy blocks tenant operations |
 | Reinstatement | Re-enable administrative state only; current entitlement is re-read/reconciled |
-| Expiry | Entitlement becomes expired only when no period covers now; existing live attempts follow approved grace/continuation rule |
+| Expiry | Entitlement becomes expired only when no period covers now; no new attempts start; started attempts finish to the original scheduled end with a 15-minute submission/reconnect window |
 | Archive | Administrative read-only archive; no erasure implication; privacy schedule continues separately |
 
 ## 5. Race and idempotency controls
@@ -97,8 +97,9 @@ Administrative `admin_state` is managed by institution administration and never 
 | Limit | Source | Atomic rule |
 |---|---|---|
 | Events per period | `subscriptions.events_used` or event creation ledger | Conditional increment in same transaction as event creation; archived events remain counted |
-| Students per event | Tenant-scoped roster rows | Lock event or use bounded insert/count strategy; prevent concurrent roster imports from exceeding cap |
-| Employees | Active `admins` with role `employee` | Lock institution row, count and insert/update in same transaction |
+| Roster per event | Tenant-scoped roster rows | Lock event or use bounded insert/count strategy; prevent concurrent roster imports from exceeding cap |
+| Employee seats | Active accepted employees only | Lock institution row, count and insert/update in same transaction; pending invitations and disabled employees do not count |
+| Admin seats | Active Admin membership (exactly one) | Partial unique index plus transaction check; only the Owner may create/replace/disable; a pending Admin invitation reserves the slot |
 | Features | Plan feature snapshot merged with approved institution overrides | Deny by default for unknown features |
 
 If multiple import workers can add roster rows concurrently, an institution lock alone may be insufficient if imports for different events share one cap; lock the event for per-event roster cap and use unique constraints for deduplication.
@@ -106,6 +107,19 @@ If multiple import workers can add roster rows concurrently, an institution lock
 ## 8. Plan catalogue
 
 `plans` is global read-only for tenant app roles. Plan changes are platform-only and versioned. A plan row update cannot rewrite existing `limits_snapshot` or invoice snapshots. Unlimited values are explicit NULL only where contract policy authorizes them; do not interpret missing values as unlimited without a CHECK and UI contract.
+
+Approved plan catalogue (version 1; live invoicing still gated by CA/provider evidence):
+
+| Plan | Duration | Base price (ex-GST) | Roster/event | Events/period | Employee seats | Admin seats |
+|---|---:|---:|---:|---:|---:|---:|
+| Trial | 7 days | Free | 700 | 10 | 2 | 1 |
+| Standard | 30 days | INR 10,000 | 300 | 30 | 5 | 1 |
+| Premium | 30 days | INR 20,000 | 700 | 100 | 15 | 1 |
+| Elite | Contract | Contract | Contract | Contract | Contract | 1 |
+
+Standard and Premium are monthly 30-day plans in v2.0. Annual plans and proration are out of scope. The 18% GST value is a placeholder only; live invoicing remains blocked until CA approval of GST, place-of-supply and invoice treatment. Refund/cancellation terms remain placeholders.
+
+Exactly one Owner and one Admin per institution. Owner and Admin are outside the employee cap. Pending employee invitations do not consume seats; disabled employees free seats; re-enabling requires a free seat. A pending Admin invitation reserves the single Admin slot and disabling the Admin frees it. Absolute platform ceiling: 1000 students/event, 100 active events/institution, 50 concurrent examinations/institution and 20 staff accounts/institution including the Owner, Admin and active employees. Elite above the ceiling needs Super Admin capacity approval. Owner and Admin can manage the plan, payment and invoices; Employees cannot. Manual Super Admin approve/extend/suspend/override actions call the same `mutateSubscription` operation and cannot bypass DB constraints or interrupt a live examination.
 
 ## 9. Billing reconciliation report
 

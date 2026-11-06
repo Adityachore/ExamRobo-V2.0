@@ -7,6 +7,7 @@
 - Prefix new routes with `/api/v2` only if the existing versioning scheme supports it; otherwise use the project's established versioning strategy and document compatibility.
 - JSON request/response, UTF-8, ISO-8601 UTC timestamps, UUIDs, pagination with bounded `limit` and opaque/validated cursor or stable offset policy.
 - Derive `institution_id` from verified auth membership/context. Reject or ignore client-supplied tenant IDs on normal tenant routes.
+- The Host header may select the Elite login/branding surface but must never be the sole tenant authorization source. Trial/Standard/Premium use the shared path; Elite uses its platform subdomain.
 - All write operations validate body, authorization, ownership, plan entitlement and idempotency where retryable.
 - Use `Idempotency-Key` for payment orders, institution approval, invitations, roster imports where duplicate submission could create effects, refunds and provider callbacks.
 - Foreign-tenant object IDs return the same not-found behavior as nonexistent IDs.

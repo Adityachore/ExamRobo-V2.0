@@ -14,3 +14,6 @@ archive/
 
 # Graphify generated knowledge graph (rebuild with `graphify extract . --code-only`)
 graphify-out/
+
+# Local UI reference drafts, not product source.
+UI Reference/

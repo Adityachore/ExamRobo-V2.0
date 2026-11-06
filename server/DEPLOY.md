@@ -236,8 +236,8 @@ with `DATABASE_URL` set. Always run `--dry-run` first and confirm the report:
 - 330 Basic / 715 Medium / 55 High.
 - 4 options per question.
 
-Re-running is safe: the importer is idempotent on the question stem hash; use
-`--replace` only when intentionally rebuilding a domain. **Never run
+Re-running is safe: the importer is idempotent on each question's stable source
+key; use `--replace` only when intentionally rebuilding a domain. **Never run
 `npm run seed` to import content** — it truncates the bank.
 
 ## 8. TLS reverse proxy

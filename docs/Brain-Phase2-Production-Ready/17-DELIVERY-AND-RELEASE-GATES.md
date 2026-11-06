@@ -43,6 +43,8 @@ Required:
 - app, worker, auth, context, platform and migration roles tested independently;
 - signed context is tamper/expiry/forgery tested and independently reviewed;
 - Super Admin has no unscoped RLS wildcard;
+- sensitive support access requires institution approval or approved break-glass and is fully audited;
+- Elite subdomain routing does not trust the Host header as tenant authorization;
 - missing/invalid context fails closed;
 - key/role separation and pooled connection tests pass.
 
@@ -62,10 +64,14 @@ Required:
 
 Required:
 - account lookup, collision policy and session revocation pass;
+- single-Admin uniqueness, pending-Admin slot and Owner-only Admin management pass;
+- employee seat counting excludes pending/disabled staff and handles re-enable concurrency;
 - invalid subscription states/periods rejected by DB;
 - concurrent renewal/expiry/plan changes tested;
 - entitlement reconciler is sole lifecycle writer;
+- expired entitlement blocks new attempts while started attempts finish to the original scheduled end with the 15-minute recovery window;
 - webhook inbox, amount/currency verification and provider reconciliation pass;
+- approved price/duration catalogue is snapshotted; 18% GST placeholder cannot reach a live invoice;
 - CA-approved GST/invoice and refund policy;
 - test-mode provider proof.
 

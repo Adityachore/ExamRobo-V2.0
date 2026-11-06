@@ -42,20 +42,21 @@ roster, watch the exam live, and export the results.
 
 ## Architecture
 ```
-web (nginx, :8080)  →  /api, /ws  →  api (Express, :4000)
+web (nginx, :8083)  →  /api, /ws  →  api (Express, :4000)
                                         ├→ PostgreSQL 16 (db, :5450)   system of record
                                         └→ Redis 7 (redis, :6379)       lockout + WS pub/sub + rate limits
 ```
 - `server/` — `app.js` (routes + sockets, importable so a test can boot it
   in-process), `index.js` (process bootstrap), `routes/` (auth, student,
-  tickets, exam, admin, bank), `services/` (paper, grading, views, live,
+  tickets, exam, admin, bank, seb, ws), `services/` (paper, grading, views, live,
   sessions, lockout, redis, **integrity**, **competency**, **analytics**,
-  **domains**),
+  **domains**, **attempts**, **event-config**, **results**, **seb**,
+  **section-flow**, **ws-tickets**),
   `middleware/` (auth,
   security, async), `scripts/` (seed, migrate, **verify**, **waitfor**,
   **scratch-db**), `sql/` (schema + migrations + **taxonomy** + **backfill**), `smoke.mjs`,
   `load/k6.js`.
-- `web/` — the ported white-theme SPA (`src/` with 27 files), `nginx.conf`,
+- `web/` — the ported white-theme SPA (`src/` with 38 files), `nginx.conf`,
   `vite.config.js` (dev proxy to :4000).
 - `Brain/` — the documentation set (Start, PRD, TRD, Schema, Design, Flow,
   compact, NextSteps, Issue, Log, **ProjectReview**, **LockdownAgent**).
@@ -69,7 +70,8 @@ web (nginx, :8080)  →  /api, /ws  →  api (Express, :4000)
 - Building the Windows lockdown agent (designed, needs six decisions).
 - Two open decisions in `Brain/Issue.md`: the HR auto-flag rule (R-043) and the
   recording retention policy.
-- Deferred to v2.1: exam history, automatic top-N selection, billing.
+- Deferred to v2.1: exam history and automatic top-N selection. Billing/plans are
+  in v2.0 (amended 2026-11-06).
 
 ## Next steps
 See `Brain/NextSteps.md` — Phase 20 (v2.0 SaaS): baseline freeze, G1 security

@@ -42,7 +42,7 @@
 | N-07 | Identity collisions across principal types | Global identity collision preflight and explicit account policy | Migration report |
 | N-08 | Object storage/Redis/logs omitted from isolation/privacy | Full store inventory and tenant key policy | Store-by-store isolation/erasure tests |
 | N-09 | Webhook 2xx before durable inbox write | Durable receipt before acknowledgment | DB-failure retry test |
-| N-10 | No shared family email handling for schools | Explicit product gate before school onboarding | Signed product decision and pilot feedback |
+| N-10 | Shared family email in school rosters | Rejected in v2.0; unique individual student email with one institution | D-10 decision + live collision report |
 
 ## 3. Evidence ledger template
 

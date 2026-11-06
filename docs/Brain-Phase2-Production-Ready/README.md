@@ -4,12 +4,12 @@
 **Product version target:** v2.0.0  
 **Current project state:** Planning / implementation not started  
 **Source baseline stated by the project:** ExamRobo v1.5.0, migrations 001–013  
-**Last plan revision reviewed:** 2026-11-05  
-**Approval state:** Authorized for baseline discovery and isolated G1 proof work only; **not authorized for full tenant implementation or production**
+**Last plan revision reviewed:** 2026-11-06
+**Approval state:** Product decisions D-01..D-36 are approved; authorized for baseline discovery and isolated G1 proof work only; **not authorized for full tenant implementation or production**
 
 ## Purpose
 
-This folder is the rebuilt Phase 2 Brain for converting ExamRobo from its existing single-institution deployment into a shared-database, multi-tenant SaaS. It replaces the previous SaaS planning pack as the Phase 2 source of truth. It is designed to be implementation-ready after the explicit owner/legal/finance decisions in `15-OPEN-DEPENDENCIES.md` are resolved.
+This folder is the rebuilt Phase 2 Brain for converting ExamRobo from its existing single-institution deployment into a shared-database, multi-tenant SaaS. It replaces the previous SaaS planning pack as the Phase 2 source of truth. The 2026-11-06 amendment adds billing/plans, Owner + Admin billing rights, email + SMS contact OTP, the plan table/platform ceiling and billing-record retention; remaining owner/legal/finance decisions are tracked in `15-OPEN-DEPENDENCIES.md`.
 
 The goal is not merely to add `institution_id` columns. The goal is to establish tenant isolation, deterministic identity, database integrity, safe billing, recoverable jobs, privacy-aware restoration, compatibility with v1.5.0, and a release process that cannot pass without evidence. The implementation start sequence and first work packages are specified in files 19–33.
 
@@ -69,6 +69,8 @@ The original 00–18 documents establish the product, architecture, domain desig
 | `33-IMPLEMENTATION-READINESS-CHECKLIST.md` | What can start now, what remains gated and first assignments |
 | `34-REQUIREMENT-TRACEABILITY-MATRIX.md` | Maps R-100 through R-137 to modules, tests and gates |
 | `35-EXECUTION-TRACKER-TEMPLATE.md` | Copyable project, work-package, decision and gate tracker |
+| `36-BUSINESS-AND-PRODUCT-DECISION-REGISTER.md` | Authoritative record of approved/open business and architecture decisions |
+| `37-PAGE-INVENTORY-AND-UI-MAP.md` | Complete page inventory, design waves and UI review checklist |
 | `00-FILE-MANIFEST.md` | Contents and authority summary |
 
 ## Technology selection rule

@@ -6,32 +6,63 @@ Locked decisions and the execution blueprint are in `Brain/ProjectReview.md`;
 the authoritative design is `docs/Brain-Phase2-Production-Ready/`.
 
 ### Open — externally blocked
-- Hosting provider + region confirmation (after G1).
-- SMTP host/credentials and SPF/DKIM/DMARC.
+- Hostinger VPS region/data residency, managed-service providers and capacity.
+- Hostinger SMTP credentials and SPF/DKIM/DMARC proof.
+- SMS provider, sender ID, DLT templates and delivery test.
+- Razorpay KYC/credentials + test/live webhook proof.
+- CA-approved GST/invoice/credit-note treatment and refund/cancellation policy.
+- Elite contract/licensing terms and any custom limit schedule.
 - Legal DPA/privacy/terms + minors attestation.
 - Legacy email-collision report — requires the live DB.
 - RPO/RTO targets.
+- DNS/wildcard TLS/cookie-domain setup for Elite subdomains.
 - T-1521 browser click-through (v1.5; user action).
 
 ### Open — baseline / verification
-- **G0 is not green on this machine.** `npm run verify` -> 161 unit tests and the
-  web build PASS; `preflight:postgres` and the smoke phase are SKIPPED because
-  `localhost:5450` is down. Re-run with the stack up; do not claim G0 until then.
-  → P20-03.
+- **G0 is not green on this machine.** The latest known `npm run verify` attempt
+  could not reach Postgres/Redis (`ECONNREFUSED`); preflight and smoke were
+  skipped. Do not claim G0 until all four phases pass and the evidence file
+  exists. → P20-03.
+- **The docs audit, decision-lock and v2 UI work are uncommitted by user
+  direction.** All Brain/pack/UI changes stay uncommitted until the user
+  approves. There is no `docs/phase2/evidence/baseline.md` yet.
 - `server/.env` has a stale database password; pass `VERIFY_PG_URL` /
   `VERIFY_REDIS_URL` (host ports 5450 / 6379) for this machine.
 - The live database has no exam event (0 events, 0 papers).
+- **v2 UI is contract-only.** The 45-screen route tree and pages are built, but
+  `/api/v2` is not implemented, so the new screens show contract-pending or
+  error states. This is intentional; connect endpoints as P20-06 lands.
+- **Legacy `/admin/*` routes are still active.** Redirects to `/app/*` must wait
+  for v2 parity and explicit cutover approval.
+- **No browser click-through of the new UI yet.** The Vite production build is
+  clean, but 320/390/tablet/1280 responsive and keyboard/accessibility checks
+  remain pending. → P20-UI-09.
 
 ### Accepted risks (v2.0)
 - Partial roster import is allowed, but the event cannot start until the Admin
   acknowledges the error report. Re-import is idempotent.
-- Plan expiry/closure deactivates; it never deletes. Purge is manual, Super
-  Admin-only, and only after a full archive export. Bank and results are lost.
+- Plan expiry/closure never deletes; no new attempts start after expiry, while
+  started attempts finish to the original scheduled end with a 15-minute
+  submission/reconnect window. Purge is manual, Super Admin-only, and only after
+  a full archive export. Bank and results are lost; invoices, payments and credit
+  notes are retained for tax/audit.
 - Owner transfer is Super Admin-only; staff cannot self-serve it.
 - One institution per staff principal and per student; a transfer creates a new
   principal and leaves the old data in place.
-- No billing, no custom domains, no exam history/top-N in v2.0 (v2.1).
-- Student emails are unique per student; shared family inboxes are not supported.
+- Billing/plans are in v2.0. Automated lifecycle and manual Super Admin
+  overrides share one audited service; the reconciler is the only writer.
+- Plan-table limits are Trial free/7 days, 700 roster/event, 10 events, 2
+  employees; Standard INR 10,000/30 days, 300/30/5; Premium INR 20,000/30 days,
+  700/100/15; Elite contract/licensing. Exactly one Owner and one Admin;
+  Owner/Admin are outside the employee cap. Absolute ceiling: 1000/event, 100
+  events, 50 concurrent and 20 staff per institution. Pending employee
+  invitations do not consume seats; disabled staff free seats.
+- 18% GST is a placeholder only; live invoices remain blocked until CA approval.
+  Refund/cancellation terms remain placeholders.
+- SMS OTP is for institution/staff contact verification; student SMS is deferred
+  because roster records have no phone. Email + invigilator PIN remain fallback.
+- Student emails are unique individual addresses; shared family inboxes are not
+  supported; final constraints/backfill await the collision scan.
 - Forced RLS assumes every tenant query runs inside a tenant transaction; any
   future `BYPASSRLS` role would defeat the model. The app role never gets it.
 

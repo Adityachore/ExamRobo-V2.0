@@ -133,14 +133,14 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
 ## Requirement R-030 — Tiered integrity enforcement
 - Description: The exam runs in fullscreen and the client reports proctor
   events. Every event is classified by the server into one of three tiers:
-  - **Tier A — instant lock**: `screenshot_key`, `recording_revoked`. The exam is
+  - **Tier A — instant lock**: `screenshot_key`. The exam is
     submitted immediately, graded normally, a `MISCONDUCT` flag is raised and
     the student is signed out.
   - **Tier B — 3-strike warning**: `tab_blur`, `fullscreen_exit`, `clipboard`,
     `context_menu`, `print`, `second_window`, `second_session`, `display_change`.
     The strikes are **shared across all Tier-B kinds**; the third one
     auto-submits the exam.
-  - **Tier C — log only**: `devtools`, `share_surface`, `os_chord`. Recorded,
+  - **Tier C — log only**: `devtools`, `os_chord`. Recorded,
     never penalised.
 - The tier table is the single source of truth (`server/services/integrity.js`);
   the client may not decide the outcome and the database CHECK constraint
@@ -162,12 +162,12 @@ Website-first proctored exam platform. Any OS, any PC. Phase 1 = MCQ only; codin
   down is one attempt.
 - **The browser cannot stop an operating-system capture.** The screenshot key
   is counted and ends the exam, but the picture is still taken — the student
-  instructions say so plainly and the screen recording is the evidence. The
+  instructions say so plainly and the proctor event log records the attempt. The
   bare operating-system key press is logged as `os_chord`.
 - Priority: P0
 
 ## Requirement R-031 — Screen recording
-- Description: **Disabled/superseded.** Active MediaRecorder capture, chunk upload and recording review are removed. Existing `recordings` rows/files are retained for data preservation; `recording_revoked` remains an accepted historical integrity kind.
+- Description: **Disabled/superseded.** Active MediaRecorder capture, chunk upload and recording review are removed. Existing `recordings` rows/files are retained for data preservation; `recording_revoked` remains valid only in the historical proctor-events CHECK constraint and is no longer registered or reportable.
 - Priority: P0 (historical)
 
 ## Requirement R-032 — Live proctor dashboard

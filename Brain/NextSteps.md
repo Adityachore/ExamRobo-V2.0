@@ -295,26 +295,53 @@ recorder, `module_minutes` and v6 `goResult` stay out (see `Brain/Not.md`).
 
 The 38-file design pack is `docs/Brain-Phase2-Production-Ready/`; the decision
 register is `Brain/ProjectReview.md`. Gate order is G0 → G1 → G2 → G3 → G4 → G5.
-**Only G0 (baseline) is authorized. Do not start G1 without explicit approval.**
+**Only G0 (baseline) and the 2026-11-06 docs alignment are authorized. Do not
+start G1 without explicit approval.**
 
 | ID | Req | Task | Agent | Depends On | Status |
 |---|---|---|---|---|---|
 | P20-01 | - | Baseline freeze: restore lockfiles, keep graphify config + PDF deletion, correct `docs/VERSIONS.md` (001-013) and stale Brain facts | memory-agent | - | [X] COMPLETED — commit `3c6518b`, tag `v1.5.0-baseline`, branch `feat/saas-v2` |
-| P20-02 | - | Decision record: ProjectReview + PRD/TRD pointers + NextSteps/Issue/Log/userRequirement/Not/Later | memory-agent | P20-01 | [X] COMPLETED — this commit |
-| P20-03 | - | G0 gate: re-run `cd server && npm run verify` with Postgres + Redis up | critique-agent | P20-01 | [>] IN PROGRESS — 161 unit + web build PASS; `preflight:postgres` and smoke SKIPPED (localhost:5450 down). Re-run when the stack is up; do not claim green until then |
+| P20-02 | - | Decision record: ProjectReview + PRD/TRD pointers + NextSteps/Issue/Log/userRequirement/Not/Later | memory-agent | P20-01 | [X] COMPLETED — this commit; amended 2026-11-06 for billing/plans/SMS/limits |
+| P20-03 | - | G0 gate: re-run `cd server && npm run verify` with Postgres + Redis up | critique-agent | P20-01 | [>] IN PROGRESS — latest known attempt could not reach Postgres/Redis (`ECONNREFUSED`); do not claim green until all four phases pass and `docs/phase2/evidence/baseline.md` exists |
 | P20-04 | R-101,R-102 | G1 security proof (isolated): DB roles, forced RLS, cross-tenant denial, no runtime `BYPASSRLS` | senior-audit-engineer-agent + senior-backend-engineer-agent | P20-03 | [ ] PENDING — requires explicit approval |
 | P20-05 | R-103..R-110 | Tenant schema: migrations 014+ (institutions, principals, per-institution domains/skills, RLS policies, legacy `ParaRobo` backfill) | senior-backend-engineer-agent | P20-04 | [ ] PENDING |
-| P20-06 | R-111..R-125 | Identity + API v2: staff/super/student auth, `/api/v2`, sessions, OTP/PIN, import, legacy bridge; `/api` exam routes stay compatible | senior-backend-engineer-agent + senior-frontend-engineer-agent | P20-05 | [ ] PENDING |
-| P20-07 | R-126..R-137 | Privacy/ops/capacity: export/purge, retention, India hosting, backup/restore, 80/100% admission, 1000 total cap | senior-devops-engineer-agent + performance-optimization-engineer-agent | P20-06 | [ ] PENDING |
+| P20-06 | R-111..R-125 | Identity + API v2: staff/super/student auth, `/api/v2`, sessions, email+SMS contact OTP, PIN, billing/plans, import, legacy bridge; `/api` exam routes stay compatible | senior-backend-engineer-agent + senior-frontend-engineer-agent | P20-05 | [ ] PENDING |
+| P20-07 | R-126..R-137 | Privacy/ops/capacity: export/purge, retention, India hosting, backup/restore, 80/100% admission, plan/platform ceilings | senior-devops-engineer-agent + performance-optimization-engineer-agent | P20-06 | [ ] PENDING |
 | P20-08 | - | Gates G2–G5: contract tests, load, migration rehearsal, cutover + rollback | technical-lead-agent | P20-04..P20-07 | [ ] PENDING |
 
 ### Phase 20 external inputs (blocking only their gate)
-- Hosting provider + region confirmation (after G1).
-- SMTP host/credentials and SPF/DKIM/DMARC.
+- Hostinger VPS region/data residency, managed-service providers and capacity.
+- Hostinger SMTP credentials and SPF/DKIM/DMARC proof.
+- SMS provider, sender ID, DLT templates and delivery test.
+- Razorpay KYC/credentials + test/live webhook proof.
+- CA-approved GST/invoice/credit-note treatment and refund/cancellation policy.
+- Elite contract/licensing terms and any custom limit schedule.
 - Legal DPA/privacy/terms + minors attestation.
 - Legacy email-collision report (needs the live DB).
 - RPO/RTO targets.
+- DNS/wildcard TLS/cookie-domain setup for Elite subdomains.
 - T-1521 browser click-through (v1.5, user action).
+
+## Phase 20A — v2 UI-first implementation (2026-11-06)
+
+UI-first, contract-only. The 45-screen route tree is built against
+`21-API-CATALOG-AND-CONTRACTS.md`; missing v2 endpoints render explicit
+contract-pending states, never fake product data. Existing v1.5 student and
+legacy admin routes remain in place until parity.
+
+| ID | Req | Task | Agent | Depends On | Status |
+|---|---|---|---|---|---|
+| P20-UI-01 | - | Contract layer: `web/src/lib/endpoints.js`, `session.js`, `useApi.js`, `ContractPending.jsx`; `api.js` platform token + normalized v2 errors | senior-frontend-engineer-agent | - | [X] COMPLETED |
+| P20-UI-02 | - | Shells and guards: `AppShell`, `PlatformShell`, `RequireAuth`/`StaffGuard`/`PlatformGuard`/`OwnerOnly`/`ManagersOnly` | senior-frontend-engineer-agent | P20-UI-01 | [X] COMPLETED |
+| P20-UI-03 | - | Public/legal/auth pages: Login, Register, ApplicationStatus, InviteSetup, PasswordRecover, Privacy, Terms, Platform Login | senior-frontend-engineer-agent | P20-UI-01 | [X] COMPLETED |
+| P20-UI-04 | - | Platform pages: Dashboard, Registrations queue/review, Institutions/detail, Plans, Revenue, Analytics, Audit/Alerts, Settings | senior-frontend-engineer-agent | P20-UI-01 | [X] COMPLETED — contract-only where v2 endpoints are absent |
+| P20-UI-05 | - | Institution pages: Dashboard, Onboarding, Events/workspace, Students/detail, Employees, Admin, Billing, Activity, Support access, Settings; v1.5 wrappers for Events/Live/Results/Flags/Tickets/Bank | senior-frontend-engineer-agent | P20-UI-01 | [X] COMPLETED |
+| P20-UI-06 | - | System states and shared feedback: NotFound/Forbidden, Maintenance, PlanLimit, InstitutionState, OfflineBanner | senior-frontend-engineer-agent | P20-UI-02 | [X] COMPLETED |
+| P20-UI-07 | - | Route tree in `web/src/App.jsx`: canonical `/login`, `/platform/*`, `/app/*`; preserved student routes and legacy `/admin/*` | senior-frontend-engineer-agent | P20-UI-02..06 | [X] COMPLETED |
+| P20-UI-08 | - | Web production build after UI wiring | senior-frontend-engineer-agent | P20-UI-07 | [X] COMPLETED — Vite 8 build clean, 2436 modules; chunk-size warning only |
+| P20-UI-09 | - | Browser click-through at 320/390/tablet/1280 for public, platform and institution routes | critique-agent | P20-UI-08 | [ ] PENDING — needs a browser / the user |
+| P20-UI-10 | - | Connect v2 endpoints as they land; remove contract-pending states per screen | senior-frontend-engineer-agent | P20-06 | [ ] PENDING |
+| P20-UI-11 | - | Switch legacy `/admin/*` redirects to `/app/*` only after parity and a user-approved cutover | senior-frontend-engineer-agent | P20-UI-10 | [ ] PENDING |
 
 ## Phase 1.5 — Coding Round (deferred)
 

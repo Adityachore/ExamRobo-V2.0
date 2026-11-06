@@ -72,7 +72,7 @@ Pass an immutable request context object through application services. The datab
 
 Use one explicit transaction per business command where atomicity is required. Examples:
 
-- create institution + first Admin + initial subscription/trial + audit event;
+- create institution + first Owner + initial subscription/trial + audit event;
 - add employee + check staff cap + update identity directory + audit event;
 - activate payment + record payment + transition invoice + insert outbox event;
 - update student status + revoke session + audit event.

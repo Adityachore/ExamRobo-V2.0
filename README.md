@@ -3,6 +3,10 @@
 A proctored online exam platform: React/Vite frontend, Express API, PostgreSQL,
 Redis, and a single-origin deployment behind nginx.
 
+> **v2.0 (Phase 20):** multi-tenant SaaS work is planned on branch
+> `feat/saas-v2`; see `Brain/ProjectReview.md` and
+> `docs/Brain-Phase2-Production-Ready/`. v1.5.0 remains the shipped release.
+
 ## Local development
 
 Requirements: Node.js 20+, PostgreSQL, and (optionally) Redis.
@@ -57,7 +61,8 @@ cd server && npm run import-bank -- --dry-run
 cd server && npm run import-bank
 ```
 
-The importer is idempotent on the question stem and never truncates the bank.
+The importer is idempotent on each question's stable source key and never
+truncates the bank. Repeated stems are imported as distinct rows.
 Do not use `npm run seed` for production content — it truncates and reseeds.
 
 
@@ -83,8 +88,8 @@ The `ADMIN_EMAILS`/`ADMIN_PASSWORD` bootstrap is development-only.
   reason `max_warnings`. Log-tier events are recorded only.
 - Results follow the event `results_visibility` (`immediate`, `after_all_submitted`, `manual`, `never`). In manual mode, admins publish results with an expiry (and can extend/unpublish); removed roster students never see results.
 - Screen recording upload has been removed. The database table and Docker
-  volume are retained for existing data; deleting an event still removes its
-  stored files.
+  volume are retained for existing data. Deleting an event archives it and
+  keeps its papers, results and stored files.
 
 ## Verification
 

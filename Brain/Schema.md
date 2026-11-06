@@ -39,11 +39,14 @@ Existing databases catch up through `server/sql/migrations/*.sql`
 | results_published_by | text | admin identity |
 | results_expires_at | timestamptz | required for manual publication |
 | created_by | uuid fk admins | |
+| created_at | timestamptz | |
+| deleted_at | timestamptz | **added in migration 013** - archive timestamp; set when an event is deleted |
+| deleted_by | text | **added in migration 013** - admin who archived the event |
+| delete_reason | text | **added in migration 013** - why the event was archived |
 
 Target compatibility: target `exam_events.module_minutes` is copied into
 `section_limits` by the preflight bridge, then retained dormant. It is not a
 main schema column; the API may accept `module_minutes` as an alias.
-| created_at | timestamptz | |
 
 ## roster_emails
 | col | type | notes |
@@ -72,6 +75,7 @@ The competency taxonomy (R-013). Reference data: the rows are seeded by
 | col | type | notes |
 |---|---|---|
 | id | uuid pk | |
+| source_key | text | **added in migration 012** - stable external ID for imported questions; unique when present |
 | category | text not null | Aptitude, Logic, Frontend, … |
 | skill_id | uuid fk skills | **added in migration 004** — the skill this question measures; `ON DELETE SET NULL`, so deleting a skill untags its questions instead of deleting them |
 | difficulty | int not null default 3 | **added in migration 004** — 1 (foundation) to 5 (expert), CHECK bounded by the database |
@@ -144,7 +148,7 @@ when its clock started and completed.
 | position | int | display order |
 | category | text | section/domain name |
 | limit_min | int | minutes for this section |
-| started_at | timestamptz | starts when the first question of the section opens |
+| started_at | timestamptz | first section starts when the paper is created; later sections start when the previous section finishes or expires |
 | ends_at | timestamptz | computed section deadline |
 | completed_at | timestamptz | set when the section finishes or expires |
 | pk(paper_id, category) | | unique(paper_id, position) |
@@ -175,6 +179,8 @@ budget (R-030) — every warning kind spends from the same budget of three.
 | id | uuid pk | |
 | paper_id | uuid fk papers | |
 | kind | text | `tab_blur` \| `fullscreen_exit` \| `clipboard` \| `context_menu` \| `print` \| `second_window` \| `second_session` \| `display_change` |
+| source | text not null default 'client' | **added in migration 006** - `client` or `server` |
+| client_event_id | text | **added in migration 006** - idempotency key for retried client reports |
 | detail | jsonb | free-form payload (added in migration 002) |
 | created_at | timestamptz | |
 
@@ -186,9 +192,14 @@ Full event log for the live dashboard (R-032).
 | id | uuid pk | |
 | paper_id | uuid fk papers | cascade delete |
 | event_id | uuid fk exam_events | cascade delete |
-| kind | text | `tab_blur` \| `fullscreen_exit` \| `clipboard` \| `context_menu` \| `print` \| `screenshot_key` \| `recording_revoked` \| `second_window` \| `second_session` \| `display_change` \| `devtools` \| `share_surface` \| `os_chord` \| `message` \| `force_submit` \| `flag` \| `locked` |
-| detail | jsonb | free-form payload |
+| email | text not null | student identity |
+| name | text | student name |
+| kind | text | `started` \| `submitted` \| `resumed` \| `restarted` \| `removed` \| `message` \| `locked` \| `tab_blur` \| `fullscreen_exit` \| `clipboard` \| `context_menu` \| `print` \| `screenshot_key` \| `second_window` \| `second_session` \| `display_change` \| `devtools` \| `os_chord` \| `network_gap` \| `recording_revoked`* \| `share_surface`* |
+| detail | text | free-form payload |
 | created_at | timestamptz | |
+
+\* `recording_revoked` and `share_surface` remain in the historical CHECK
+constraint only; the integrity registry no longer accepts them.
 
 ## recordings
 Legacy, retained for data preservation. Screen recording upload/review is
@@ -313,11 +324,11 @@ re-applied on every boot):
 same way it fills the skill and the difficulty - today's tags, frozen from
 then on.
 
-## Migration 006 - per-question delivery
-`server/sql/migrations/006_question_delivery.sql`:
+## Migration 006 - integrity delivery
+`server/sql/migrations/006_integrity_delivery.sql`:
 - `papers.last_seen_at`, `papers.source`.
 - `warnings.source`, `warnings.client_event_id`.
-- One-time WebSocket ticket support.
+- `network_gap` proctor kind and one-time WebSocket ticket support.
 
 ## Migration 007 - admin controls and section timing
 `server/sql/migrations/007_admin_controls.sql`:
@@ -351,6 +362,24 @@ then on.
   `results_expires_at`.
 - Preserve target values exactly; no blanket flip of post-target-`009` events.
 
+## Migration 011 - normalize the Cybersecurity category
+`server/sql/migrations/011_normalize_cybersecurity_category.sql`:
+- Normalize the `security_fundamentals` skill and its unfrozen questions from
+  `Cyber Security` to `Cybersecurity`.
+- Questions already frozen into a paper keep their original category.
+
+## Migration 012 - question source keys
+`server/sql/migrations/012_question_source_key.sql`:
+- `questions.source_key`, nullable for questions authored in the admin UI.
+- Partial unique index `idx_questions_source_key` when the value is present.
+
+## Migration 013 - event soft delete
+`server/sql/migrations/013_event_soft_delete.sql`:
+- `exam_events.deleted_at`, `deleted_by`, `delete_reason`.
+- Index `idx_exam_events_deleted`.
+- Deleting an event archives it; papers, warnings, results and recordings stay
+  attached and the event is listed under Completed.
+
 ## The backfill — data file, not a migration
 `server/sql/backfill.sql` rebuilds the frozen competency of the papers that
 ran **before** the taxonomy existed: they have no `paper_questions` rows, so
@@ -365,9 +394,11 @@ order and the skills are the real ones — and the result is frozen from then
 on, like any other paper. A paper that already has a snapshot is left alone.
 
 ## Notes
-- No `students` table in Phase 1: identity = roster email; the paper row is the
-  exam identity.
+- No `students` table in v1.5: identity = roster email; the paper row is the
+  exam identity. v2.0 adds institution-scoped students (see
+  `Brain/ProjectReview.md`).
 - Correct answers never leave the server before submit.
 - Migrations are append-only: never edit an applied migration, add a new file.
-- The `proctor_events.kind` CHECK is the backstop for the policy: a kind the
-  policy does not know cannot be written to the database at all.
+- The `proctor_events.kind` CHECK is the historical backstop: it rejects a value
+  outside the full legacy vocabulary. The integrity registry is the runtime gate
+  and rejects the retired kinds (`recording_revoked`, `share_surface`).

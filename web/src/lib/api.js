@@ -1,15 +1,41 @@
 // API helper. Student and admin sessions use SEPARATE storage keys, so one
 // role's token can never satisfy the other role's routes. Tokens are never
 // rendered or logged.
-export const TOKEN_KEYS = { student: 'examrobo_student_token', admin: 'examrobo_admin_token' };
-const PROFILE_KEYS = { student: 'examrobo_student_profile', admin: 'examrobo_admin_profile' };
+export const TOKEN_KEYS = {
+  student: 'examrobo_student_token',
+  admin: 'examrobo_admin_token',
+  platform: 'examrobo_platform_token',
+};
+const PROFILE_KEYS = {
+  student: 'examrobo_student_profile',
+  admin: 'examrobo_admin_profile',
+  platform: 'examrobo_platform_profile',
+};
 
 export class ApiError extends Error {
-  constructor(message, status, data) {
+  constructor(message, status, data, code, details) {
     super(message);
     this.status = status; // 0 = network failure
     this.data = data || {};
+    this.code = code || data?.error?.code || null;
+    this.details = details || data?.error?.details || null;
+    this.requestId = data?.meta?.request_id || null;
   }
+}
+
+function errorParts(data, status) {
+  const payload = data?.error;
+  if (payload && typeof payload === 'object') {
+    return {
+      message: payload.message || `Request failed (${status})`,
+      code: payload.code || null,
+      details: payload.details || null,
+    };
+  }
+  if (typeof payload === 'string' && payload) {
+    return { message: payload, code: null, details: null };
+  }
+  return { message: `Request failed (${status})`, code: null, details: null };
 }
 
 export const auth = {
@@ -57,7 +83,10 @@ export async function api(path, { method = 'GET', body, role, raw = false, heade
       detail: { role, reason: data.lock_reason || null, label: data.lock_reason || null },
     }));
   }
-  if (!res.ok) throw new ApiError(data?.error || `Request failed (${res.status})`, res.status, data);
+  if (!res.ok) {
+    const { message, code, details } = errorParts(data, res.status);
+    throw new ApiError(message, res.status, data, code, details);
+  }
   return data;
 }
 

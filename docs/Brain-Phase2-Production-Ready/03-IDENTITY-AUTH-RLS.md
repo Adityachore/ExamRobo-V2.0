@@ -25,13 +25,13 @@ Use a dedicated authentication control-plane model. Separate `auth_principals`, 
 Use these normalized entities rather than a single overloaded directory row:
 
 - `auth_principals`: stable principal ID and global account state.
-- `auth_login_identifiers`: principal ID, identifier type, normalized value, verified state and timestamps; unique by `(identifier_type, normalized_value)` where the product has approved global uniqueness.
-- `auth_memberships`: principal ID, institution ID, role, domain account reference, membership state and authorization epoch. A principal may have multiple memberships only under the approved membership-selection UX.
+- `auth_login_identifiers`: principal ID, identifier type, normalized value, verified state and timestamps; unique by `(identifier_type, normalized_value)`.
+- `auth_memberships`: principal ID, institution ID, role, domain account reference, membership state and authorization epoch. A principal has exactly one institution membership in v2.0; membership selection is out of scope. Each institution has exactly one active `owner` and at most one active `admin`; a partial unique index enforces the single active Admin. A pending Admin invitation reserves the single Admin slot. Only the Owner may create, replace or disable the Admin.
 - `auth_identity_directory` may remain as a materialized/control-plane lookup projection if performance requires it, but it is derived and transactionally synchronized; it is not a second source of truth.
 
 ### Optional `auth_identity_directory` projection
 
-If lookup performance requires a denormalized projection, it contains only the fields required for identifier resolution and points to the normalized principal/membership records. It is rebuildable and is not the source of truth. Do not duplicate a single institution/role field when a principal can have multiple memberships.
+If lookup performance requires a denormalized projection, it contains only the fields required for identifier resolution and points to the normalized principal/membership records. It is rebuildable and is not the source of truth. A principal has one institution/role in v2.0, but the projection still points to the membership record.
 
 Minimum projection fields: `principal_id`, `identifier_type`, `normalized_identifier`, `verified_state`, `principal_state`, `credential_ref`, `updated_at`. Unique lookup is by the approved `(identifier_type, normalized_identifier)` key. Memberships are loaded only after credential verification, through the authenticated principal's permitted memberships.
 
@@ -61,9 +61,9 @@ Provide narrowly scoped functions with separated responsibilities, such as `auth
 `auth.list_memberships` contract:
 
 - Is callable only after successful authentication and is bound to the authenticated principal/session.
-- Returns only current memberships belonging to that principal, including institution ID, membership ID, role, state and minimal display metadata.
+- Returns the principal's one current institution membership, including institution ID, membership ID, role, state and minimal display metadata.
 - A selected membership is revalidated against current state before tenant context is issued.
-- If multiple memberships exist, the user must explicitly select one; do not choose the first.
+- Membership selection is not part of v2.0; an unexpected second membership fails closed.
 
 Both functions use a fixed trusted `search_path`, schema-qualified object references and revoked `PUBLIC` execution. Application rate limiting and security logging must not include raw password, OTP, refresh token or recovery token values.
 
@@ -79,7 +79,7 @@ Separate login role `examrobo_auth_app` connects through a dedicated auth pool a
 
 The principal, login identifier and membership records are kept current in the same transaction as source account changes. If an optional lookup projection is used, synchronize it transactionally. Its synchronization must be database-enforced or implemented through one centrally enforced write service; a best-effort asynchronous copy is not acceptable for disablement or role revocation. A nightly consistency job is detection, not the primary synchronization control.
 
-`examrobo_auth_app` receives `EXECUTE` on the lookup/session functions only; it receives no direct SELECT on auth credential tables and no tenant business-table access. `examrobo_app` cannot execute pre-auth identity lookup functions. Membership selection must be bound to the already authenticated principal/session and cannot accept an arbitrary principal ID from the browser. Use a separate connection pool/credential and, where operationally feasible, a separately deployed authentication service. This limits the damage from an injection in an ordinary tenant query path.
+`examrobo_auth_app` receives `EXECUTE` on the lookup/session functions only; it receives no direct SELECT on auth credential tables and no tenant business-table access. `examrobo_app` cannot execute pre-auth identity lookup functions. Membership binding is derived from the authenticated principal/session and cannot accept an arbitrary principal or institution ID from the browser. Use a separate connection pool/credential and, where operationally feasible, a separately deployed authentication service. This limits the damage from an injection in an ordinary tenant query path.
 
 ## 4. Database roles
 
@@ -159,10 +159,12 @@ RLS does not govern `TRUNCATE`, table ownership, superuser access or all side ch
 - Super Admin identity is stored separately from institution staff.
 - Super Admin global dashboard queries run through restricted aggregate functions and return minimum necessary fields.
 - Reading one institution's operational data requires an explicit support grant: target institution, purpose, actor, read/write scope, expiration and audit record.
-- That operation obtains a short-lived tenant context for only the target institution.
-- Student answers and proctor evidence are excluded from default support access; require a separately approved, reasoned scope.
+- Sensitive support access requires institution authorization. If the institution cannot authorize, break-glass requires security and product approval, dual control, a documented emergency reason, a short expiry and full audit.
+- Sensitive classes are student PII/contact data beyond aggregate counts, answers, recordings/evidence, billing identifiers and tenant exports.
+- That operation obtains a short-lived tenant context for only the target institution; the Host header is never sufficient authorization.
+- Student answers and proctor evidence are excluded from default support access.
 - Every platform action is written to a separate append-only platform audit table.
-- No impersonation feature is included in v2.0.0.
+- No impersonation, password retrieval or silent result-change feature is included in v2.0.0.
 
 ## 8. Current authorization checks
 

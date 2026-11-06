@@ -87,10 +87,10 @@ The lab never edits this project — it only drives it through Docker and HTTP.
 ### Everything in Docker (recommended)
 ```powershell
 cd C:\Users\Asus\Desktop\Exam-Robo-main
-docker compose up -d --build          # db (5450), redis (6379), api (4000), web (8080)
+docker compose up -d --build          # db (5450), redis (6379), api (4000), web (8083)
 docker compose exec api node scripts/seed.js   # seed data (truncates first)
 ```
-Then open <http://localhost:8080>.
+Then open <http://localhost:8083>.
 - Student: `student@example.com` / `john.doe@example.com` (no password).
 - Admin: `admin@examrobo.dev` / `admin123` (change before any real use).
 - Reset everything: `docker compose down -v && docker compose up -d --build`.
@@ -128,7 +128,7 @@ The SPA dev server (`web`: `npm run dev`) proxies `/api` and `/ws` to `:4000`.
 | `ADMIN_EMAILS` / `ADMIN_PASSWORD` | empty | bootstrap of the first admin; ignored in production |
 | `RECORDINGS_DIR` | `./data/recordings` | legacy data directory; active recording upload is disabled |
 | `PORT` | `4000` | |
-| `CORS_ORIGINS` | localhost 5173/8080 | comma-separated allowlist |
+| `CORS_ORIGINS` | localhost 5173/8083 | comma-separated allowlist |
 | `AUTH_RATE_LIMIT` / `TICKET_RATE_LIMIT` | 30 / 10 | per minute |
 
 ### Exam-day checklist

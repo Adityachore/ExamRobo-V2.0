@@ -8,9 +8,9 @@
 | R-101 Roles | authorization, staff, platform | membership/permission matrix | direct route denial by role | G2/G3 |
 | R-102 Common login | identity | login identifiers and login API | AUTH-001..004 | G1/G3 |
 | R-103 Student roster identity | students, identity | roster/student auth link | duplicate/shared-contact collision tests | G0/G3 |
-| R-104 Plan catalogue | plans | plans and plan API | schema/seed/permission tests | G3 |
-| R-105 Subscription lifecycle | subscriptions | periods/entitlements | concurrent boundary/state tests | G3 |
-| R-106 Limit enforcement | subscriptions, students, staff, exams | usage/counters and create routes | parallel requests at final slot | G3 |
+| R-104 Plan catalogue | plans | plans and plan API | schema/seed/permission tests; prices 10k/20k, 30-day monthly, GST placeholder isolated | G3 |
+| R-105 Subscription lifecycle | subscriptions | periods/entitlements | concurrent boundary/state tests; monthly-only and expiry-continuation tests | G3 |
+| R-106 Limit enforcement | subscriptions, students, staff, exams | usage/counters and create routes | parallel requests at final employee/roster slot; single-Admin and pending rules | G3 |
 | R-107 Institution registration | registration | public application endpoints | abuse/idempotency tests | G4 |
 | R-108 OTP verification | registration, notifications | OTP challenge/provider adapter | expiry/reuse/brute-force tests | G4 |
 | R-109 Trial-abuse prevention | registration | keyed fingerprint/retention | collision, false-positive and expiry tests | G4 |
@@ -22,7 +22,7 @@
 | R-115 Revenue/invoices | billing | immutable invoice/payment records | CA-reviewed invoice tests | G3 |
 | R-116 Payment integration | billing | orders/webhook inbox | signature, amount, replay and reconciliation tests | G3 |
 | R-117 Growth analytics | platform, analytics | minimized aggregate read model | aggregation accuracy/privacy tests | G5 |
-| R-118 Admin onboarding/employees | staff, identity | memberships/invitations | staff cap and revocation tests | G3 |
+| R-118 Admin onboarding/employees | staff, identity | memberships/invitations | single-Admin, pending-slot, employee-seat and revocation tests | G3 |
 | R-119 Employee scope | authorization, staff | permission matrix | direct HTTP denial tests | G2/G3 |
 | R-120 Per-institution question bank | question-bank | tenant questions/assets | duplicate natural key and A/B tests | G2 |
 | R-121 Tenant branding | institutions, storage | tenant profile/object storage | signed URL/path isolation | G2/G5 |
@@ -37,7 +37,7 @@
 | R-130 Data lifecycle/privacy | privacy | data requests and external tombstone ledger | restore-before-traffic test | G4 |
 | R-131 v1.5 compatibility | all affected modules | existing routes/exam engine | golden journeys/regression report | G5 |
 | R-132 Subscription integrity | subscriptions, billing | DB constraints/reconciler | invalid/overlap/concurrent tests | G3 |
-| R-133 Deterministic login identity | identity | principal/login identifier/membership | collisions and selection tests | G1/G3 |
+| R-133 Deterministic login identity | identity | principal/login identifier/membership | collision scan, one-membership and unique individual-email tests | G1/G3 |
 | R-134 Unforgeable tenant context | tenant-context, DB | signed envelope/context verifier | SEC-004..007 and pool tests | G1 |
 | R-135 Tenant-consistent relationships | database | composite FK/unique registry | foreign-tenant relationship inserts rejected | G2 |
 | R-136 Privacy recovery tombstones | privacy, operations | external ledger and replay | pre-request backup restore | G4 |

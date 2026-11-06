@@ -162,9 +162,9 @@ detects, the server decides.
 
 | Tier | Kinds | Client behaviour | Server outcome |
 |---|---|---|---|
-| A — lock | `screenshot_key`, `recording_revoked` | report and keep the UI honest | exam submitted, `MISCONDUCT` flag, signed out |
+| A — lock | `screenshot_key` | report and keep the UI honest | exam submitted, `MISCONDUCT` flag, signed out |
 | B — warn | `tab_blur`, `fullscreen_exit`, `clipboard`, `context_menu`, `print`, `second_window`, `second_session`, `display_change` | report, show the amber banner | strike against a shared budget of 3; the third submits |
-| C — log | `devtools`, `share_surface`, `os_chord` | report | event feed only |
+| C — log | `devtools`, `os_chord` | report | event feed only |
 
 - The strike budget is **shared across all Tier-B kinds**: one mistake budget
   of three, not three per kind.
@@ -196,3 +196,46 @@ detects, the server decides.
 - A lock is terminal: the paper is submitted, every later answer, start or
   event call is refused with 409 `locked: true`, and the student lands on the
   lockout screen.
+
+## v2 UI-first shell and route architecture (2026-11-06)
+
+The v2 UI is additive. Existing student pages and `/admin/*` remain untouched
+until v2 parity; no legacy route is redirected yet.
+
+### Route tree
+- Public: `/login`, `/register`, `/application/status`, `/invite/:token`,
+  `/password/recover`, `/privacy`, `/terms`.
+- Platform: `/platform/login`; guarded `/platform` shell with dashboard,
+  registrations (queue + review), institutions (list + detail), plans, revenue,
+  analytics, audit/alerts and settings.
+- Institution: guarded `/app` shell with dashboard, onboarding (Owner only),
+  events (list + workspace), students (list + detail), question bank, live,
+  results, flags, tickets, employees/billing/activity/support access/settings
+  (Owner or Admin).
+- Preserved v1.5: `/`, `/seb`, `/waiting`, `/exam`, `/result`, `/locked`;
+  `/admin/login` and legacy `/admin/*`.
+- Shared states: `/403`, `/maintenance`, `/plan-limit`, `*` → NotFound.
+
+### Data and auth boundary
+- `web/src/lib/endpoints.js` is the only endpoint map. All new calls use
+  `/api/v2`; legacy paths live under `ENDPOINTS.legacy`.
+- `web/src/hooks/useApi.js` unwraps `{ data, meta }`; `useApi(path, 'platform')`
+  selects the platform token, default `admin` selects the staff token.
+- `web/src/lib/session.js` is a UI capability adapter only. It assumes Owner
+  when no staff role is present; the server still enforces authorization.
+- `web/src/lib/api.js` keeps separate storage keys for student, admin and
+  platform; a 401 clears only that role and dispatches
+  `examrobo:unauthorized`.
+- Missing v2 endpoints render `ContractPending` / `ApiErrorState`. No placeholder
+  metrics, students, events or invoices are invented.
+- `AppShell` navigation is role-filtered: Operations are visible to all staff;
+  Manage items require Owner/Admin; Admin management is Owner-only.
+
+### Layout
+- `AppShell`: 232 px left nav at `lg`, mobile drawer below, sticky top bar with
+  role badge and log out, content max-w-7xl.
+- `PlatformShell`: dark platform identity, same responsive nav/content pattern.
+- Tables use `TableWrap` with a minimum width and horizontal scroll; skeletons
+  are used only while a real request is in flight.
+- All async sections use `Spinner` / `TableSkeleton` / `EmptyState` /
+  `ApiErrorState` consistently.

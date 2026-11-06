@@ -8,6 +8,9 @@
 - [ ] Inventory all routes, tables, queries, jobs, caches, WebSockets and files.
 - [ ] Confirm source-of-truth ownership for every legacy row.
 - [ ] Close login identity and student shared-contact decisions.
+  - [x] Student shared-contact decision closed 2026-11-06: unique individual email, shared rejected.
+  - [x] Staff role model closed: one institution per principal, Owner/Admin/Employee, Owner+Admin billing.
+  - [ ] Staff/legacy email collision scan still required.
 - [ ] Confirm database version and deployment topology.
 - [ ] Build CI PostgreSQL 16 test service.
 - [ ] Run isolated G1 role/context/RLS proof.
@@ -35,13 +38,13 @@ These activities are safe starting work because they do not require tenantizing 
 | Approval | Owner | Required evidence |
 |---|---|---|
 | v1.5.0 baseline accepted | Tech lead | SHA, migrations, passing baseline, backup restore |
-| Identity policy | Product owner | ADR for unique identifiers, memberships and student login |
+| Identity policy | Product owner | Unique-email intent approved; final constraints/backfill blocked by the collision scan |
 | Tenant ownership policy | Product + DBA | Mapping rules and collision report |
 | DB security design | Security + DBA | G1 proof and independent review |
-| Plan catalogue | Business owner | Signed plans, durations, limits and Elite semantics |
-| Exam expiry policy | Product owner | Grace/ongoing attempt and read-only behavior |
-| GST/invoice/refund | CA + business owner | Written calculations and policy |
-| Provider readiness | Ops/product | Accounts, approved credentials and test evidence |
+| Plan catalogue | Business owner | **Approved 2026-11-06:** Trial free/7 days, Standard INR 10,000/30 days, Premium INR 20,000/30 days, monthly only, 700/300/700 roster per event, employee seats 2/5/15, one Admin; Elite licensing terms remain open |
+| Exam expiry policy | Product owner | **Approved 2026-11-06:** scheduled-end completion plus 15-minute submission/reconnect; no new attempts after expiry |
+| GST/invoice/refund | CA + business owner | Prices approved; 18% GST and refund terms remain placeholders until written CA/business approval |
+| Provider readiness | Ops/product | Razorpay and Hostinger SMTP selected; Hostinger VPS + managed services direction approved; accounts, credentials, region and test evidence remain |
 | Privacy/minor data | Legal counsel | Data map, DPA, retention, school/minor responsibility |
 | Team capacity | Project owner | Named owners, allocation and independent reviewers |
 
@@ -50,7 +53,7 @@ These activities are safe starting work because they do not require tenantizing 
 **Decision: APPROVED TO BEGIN BASELINE AND G1 PROOF WORK ONLY.**  
 **Decision: NOT APPROVED FOR FULL TENANT IMPLEMENTATION OR PRODUCTION.**
 
-This is a deliberate staged authorization. The project can start immediately with safe discovery and proof work; it must not skip the security gate to appear productive.
+The product decisions D-01..D-36 are approved as of 2026-11-06, including billing/plans in v2.0, Owner + Admin billing, email + SMS contact OTP, plan limits and the platform ceiling. This still does not authorize full tenant implementation: G0 must be green and G1 must pass first.
 
 ## 6. First task to assign
 

@@ -12,15 +12,18 @@ Reason: Low-priority ideas and side-quests.
   **v2.1**; not part of v2.0.
 - **2026-11-01 — Gated coding round (T-901, Phase 1.5):** Judge0 not built.
 - **2026-11-01 — Windows lockdown agent (T-960, Phase 2):** design only.
-- **2026-11-05 — Billing / GST / Razorpay:** v2.0 is institutions + exams only;
-  billing is a v2.1 candidate.
-- **2026-11-05 — Custom domains / full white-label:** institution slug stays on
-  `examrobo.com` in v2.0.
+- **2026-11-06 — Billing / GST / Razorpay:** now **in v2.0** with plans, invoices,
+  payments, refunds and reconciliation; no longer deferred to v2.1.
+- **2026-11-06 — Student SMS OTP:** deferred; v2.0 SMS verifies institution/staff
+  contacts only because roster records do not capture phone.
+- **2026-11-05 — Custom domains / full white-label:** deferred. Only Elite gets a
+  `slug.examrobo.com` platform subdomain in v2.0; Trial/Standard/Premium use the
+  shared platform path and custom domains remain out of scope.
 - **2026-11-05 — Shared family email support:** rejected for v2.0; revisit only
   if a pilot institution proves the need.
 - **2026-11-05 — Staff MFA:** Super Admin has WebAuthn in v2.0; staff MFA is a
   later hardening step.
 - **2026-11-05 — Student transfer history continuity:** old data stays with the
   old institution in v2.0; a merged history view is later.
-- **2026-11-05 — Higher per-institution concurrency:** v2.0 caps at 50 concurrent
-  and 1000 total; revisit after the pilot's real load data.
+- **2026-11-06 — Higher per-institution concurrency:** v2.0 uses the plan table
+  and a 50-concurrent/100-event/1000-per-event ceiling; revisit after pilot load.

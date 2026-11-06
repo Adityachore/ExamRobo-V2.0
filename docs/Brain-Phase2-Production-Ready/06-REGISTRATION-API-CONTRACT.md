@@ -72,17 +72,17 @@ Keep existing `/api/admin/*` and `/api/bank/*` shapes where possible, but derive
 
 | Method | Route | Required behavior |
 |---|---|---|
-| GET/POST | `/api/admin/employees` | Admin only; live staff cap under institution lock |
-| PATCH | `/api/admin/employees/:id` | Own institution; role/status change bumps session version |
+| GET/POST | `/api/admin/employees` | Owner or Admin only; live staff cap under institution lock |
+| PATCH | `/api/admin/employees/:id` | Own institution; Owner/Admin; role/status change bumps session version |
 | GET | `/api/admin/students` | Own institution, paged and filtered |
 | POST | `/api/admin/students/import` | Atomic/partial-batch contract defined; return added/updated/conflicts/invalid |
 | PATCH | `/api/admin/students/:id` | Own institution; disabling revokes session |
-| GET/PATCH | `/api/admin/institution` | Admin only; branding and profile |
+| GET/PATCH | `/api/admin/institution` | Owner or Admin only; branding and profile |
 | GET | `/api/admin/usage` | Values from entitlement projection and tenant counts |
-| GET | `/api/admin/billing` | Admin only; current and future periods, invoices, payments |
-| POST | `/api/admin/billing/orders` | Server-side plan/price/tax; idempotency key |
-| POST | `/api/admin/billing/verify` | Provider lookup; never trust browser success alone |
-| GET | `/api/admin/billing/invoices/:id/pdf` | Own institution only; signed short-lived storage URL or authenticated stream |
+| GET | `/api/admin/billing` | Owner or Admin only; current and future periods, invoices, payments |
+| POST | `/api/admin/billing/orders` | Owner or Admin; server-side plan/price/tax; idempotency key |
+| POST | `/api/admin/billing/verify` | Owner or Admin; provider lookup; never trust browser success alone |
+| GET | `/api/admin/billing/invoices/:id/pdf` | Owner or Admin; own institution only; signed short-lived storage URL or authenticated stream |
 | POST | `/api/admin/events` | Enforce event cap under transaction |
 | POST | `/api/admin/events/:id/roster` | Event lock/tenant scope; enforce roster cap and identity conflict policy |
 

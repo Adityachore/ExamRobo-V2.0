@@ -20,8 +20,8 @@
 |---|---|---|---|
 | `institutions` | `id` | Tenant | One row per tenant; admin/review state only; no subscription-derived status writer |
 | `institution_contacts` | `institution_id` | Tenant | Composite FK to institution; normalized contact email; primary-contact rule |
-| `admins` | `institution_id` | Tenant | Only `admin`/`employee`; Super Admins stored separately; session version via auth directory |
-| `students` | `institution_id` | Tenant | Global normalized email uniqueness is a deliberate v2 decision; preflight duplicates before migration |
+| `admins` | `institution_id` | Tenant | Tenant staff roles `owner`/`admin`/`employee`; exactly one Owner; at most one active Admin; Super Admins stored separately; session version via auth directory |
+| `students` | `institution_id` | Tenant | Unique individual email is the approved intent; final global constraint/backfill is blocked by the mandatory collision scan |
 | `exam_events` | `institution_id` | Tenant | `UNIQUE(institution_id,id)` for composite FKs |
 | `roster_emails` | `institution_id` | Tenant | Preserve `UNIQUE(event_id,email)`; composite FK to event and optional student |
 | `questions` | `institution_id` | Tenant | Source key unique per institution, not globally |
@@ -47,7 +47,7 @@
 
 | Table | RLS | Runtime permissions |
 |---|---|---|
-| `skills` | No tenant RLS | SELECT only for tenant app roles; no writes from tenant app |
+| `skills` | Tenant RLS via `institution_id` | Institution-scoped SELECT; no cross-tenant taxonomy writes |
 | `plans` | No tenant RLS | SELECT for tenant roles; writes only through platform plan service; version/snapshot rules apply |
 
 Global does not mean publicly queryable. GRANTs still restrict columns and operations.
@@ -99,15 +99,24 @@ System tables are not automatically safe. They often contain PII or security sta
 - At most one primary contact per institution using a partial unique index.
 - Contact email is not itself a second login credential; the identity directory determines login ownership.
 
+### `tenant_domains`
+- `id`, `institution_id`, `hostname`, `hostname_norm`, `status`, `verified_at`, timestamps.
+- `UNIQUE(hostname_norm)` and composite FK to institution.
+- Only Elite institutions may have a non-null platform subdomain. Trial/Standard/Premium use the shared platform path.
+- Custom domains remain out of scope; the table exists for the Elite platform subdomain and future expansion.
+- The Host header may select a login/branding surface, but tenant authorization must still come from the authenticated session and server-side membership resolution.
+
 ### `admins`
-- Tenant staff only: role `admin` or `employee`; non-null institution ID.
+- Tenant staff only: role `owner`, `admin` or `employee`; non-null institution ID; exactly one `owner` and at most one active `admin` per institution.
+- A partial unique index enforces one active Admin; a pending Admin invitation reserves the single Admin slot.
+- Only the Owner may create, replace or disable the Admin. Disabling the Admin frees the slot but preserves the row and audit history.
 - Super Admin accounts move to `platform_admins`.
 - Password hash and session version live in the restricted auth store; the business staff row references `principal_id`.
 - Composite unique key `(institution_id,id)` and FK to institution.
 
 ### `students`
 - `id`, `institution_id`, `principal_id` nullable only if legacy student auth flow genuinely does not create a principal, `normalized_email`, `name`, `status`, timestamps.
-- Global unique index on normalized email only after explicit owner approval and collision preflight.
+- Global unique index on normalized email is the approved intent for active individual students; shared family/guardian inboxes are rejected. The final global constraint and backfill are blocked until the mandatory collision scan is complete.
 - Do not put global unique constraints on `roster_emails` or `papers`; per-event uniqueness remains.
 
 ### `subscriptions`
@@ -129,14 +138,16 @@ System tables are not automatically safe. They often contain PII or security sta
 ### `plans`
 - `code` CHECK/unique: `trial`, `standard`, `premium`, `elite`.
 - `billing_mode` CHECK: `free`, `self_serve`, `contract`.
-- `price_paise` integer; contract plans may be NULL; free plans are zero; self-serve plans are positive.
+- `price_paise` integer; contract plans may be NULL; free plans are zero; self-serve plans are positive. Standard is INR 10,000 and Premium INR 20,000 per 30 days, ex-GST.
+- `billing_interval_days` is 30 for Standard/Premium in v2.0; annual plans are out of scope.
+- `tax_placeholder_percent` may hold 18 for drafting/UI only; it must not authorize a live invoice before CA approval.
 - CHECK enforces `billing_mode='contract'` iff `price_paise IS NULL` only if no other contract pricing representation exists.
-- Duration and numeric limits must be positive or NULL for approved unlimited values.
+- Duration and numeric limits must be positive or NULL for approved unlimited values. `employee_seats` is 2/5/15 for Trial/Standard/Premium; `admin_seats` is 1; `roster_per_event` is 700/300/700.
 - JSON feature data is schema-validated by application and a stable versioned contract.
 
 ### `auth_principals` / `auth_login_identifiers` / `auth_memberships` / `auth_credentials` / `auth_sessions`
 
-See `03-IDENTITY-AUTH-RLS.md` and ADR-IDENTITY-02. A login identifier must resolve deterministically to one principal for its identifier type, but student roster/guardian email is not globally unique by default. Staff with multiple institution memberships must select one verified membership before tenant context is issued. Student records link to a principal only if the verified existing login flow requires it. Credential and session data are restricted and are not directly readable by ordinary app roles.
+See `03-IDENTITY-AUTH-RLS.md` and the approved D-04/D-10. A login identifier must resolve deterministically to one principal. Student email is intended to be unique per active individual student; shared family/guardian inboxes are rejected; final global uniqueness/backfill awaits the collision scan. A staff principal has exactly one institution membership in v2.0; membership selection is out of scope. Each institution has exactly one Owner and at most one active Admin. Student records link to a principal only if the verified existing login flow requires it. Credential and session data are restricted and are not directly readable by ordinary app roles.
 
 ### `registration_requests`
 - Never store raw OTP, raw status token or plaintext password.

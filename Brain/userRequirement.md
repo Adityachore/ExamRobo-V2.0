@@ -17,32 +17,55 @@ Phase 20. The full decision register is in `Brain/ProjectReview.md`; the pack is
 `docs/Brain-Phase2-Production-Ready/`. Summary:
 
 - **Tenancy:** forced Postgres RLS; the app role never has `BYPASSRLS`.
-- **Domains:** institution at `slug.examrobo.com`; Super Admin at `admin.examrobo.com`.
-- **Staff:** one institution per principal; owner + multiple admins + employees;
-  owner transfer only by Super Admin.
+- **Domains:** Elite only at `slug.examrobo.com`; Trial/Standard/Premium use the
+  shared platform path; custom domains out of scope. Super Admin at
+  `admin.examrobo.com`.
+- **Staff:** one institution per principal; exactly one owner, exactly one admin,
+  plus employees; only the owner manages the admin; owner transfer only by Super
+  Admin.
 - **Staff auth:** password; Admin sets a 24h temp password; forced change.
 - **Super Admin:** password + WebAuthn; two accounts + backup codes.
-- **Students:** email OTP/magic link; unique email; one institution; no
-  self-registration; invigilator PIN fallback (15 min, audited).
+- **Students:** email OTP/magic link; unique individual email; one institution;
+  no self-registration; invigilator PIN fallback (15 min, audited). Shared
+  family/guardian inboxes are rejected; final uniqueness/backfill awaits the
+  collision scan. Student SMS OTP is deferred because roster records have no phone.
+- **Staff contact verification:** email + SMS OTP.
 - **Content:** per-institution taxonomy and bank; the 1100 pack is imported on
   request; papers keep frozen copies.
 - **API:** new `/api/v2`; existing `/api` exam routes stay compatible.
-- **Scope:** institutions + exams; no billing in v2.0.
-- **Limits:** 5 active events, 500 students/event, 50 concurrent per institution,
-  1000 total; warn at 80%, block new starts at 100%, never interrupt live exams.
+- **Scope:** institutions + exams + billing/plans.
+- **Limits:** plan table Trial free/7 days, 700 roster/event, 10 events, 2
+  employees; Standard INR 10,000/30 days, 300/30/5; Premium INR 20,000/30 days,
+  700/100/15; Elite contract/licensing. Monthly only; 18% GST placeholder.
+  Absolute ceiling 1000 students/event, 100 active events, 50 concurrent and
+  20 staff per institution. Exactly one Owner and one Admin outside the employee
+  cap; pending employee invitations do not consume seats; disabled staff free
+  seats.
 - **Sessions:** 15-min access + 7-day rotating refresh.
-- **Lifecycle:** optional plan expiry; deactivate; deferred until live papers end
-  (max 24h); manual purge only, annual review; purge deletes students/bank/
-  results and keeps staff/institution/audit.
+- **Billing:** Owner/Admin manage plan, payment and invoices; automated lifecycle
+  plus manual Super Admin overrides through one audited service; the reconciler
+  is the sole entitlement writer. Billing records survive purge.
+- **Lifecycle:** optional plan expiry; no new attempts after expiry; started
+  attempts finish to the original scheduled end with a 15-minute
+  submission/reconnect window; manual purge only, annual review; purge deletes
+  students/bank/results and keeps staff/institution/audit/invoices/payments/
+  credit notes.
 - **Export:** Admin results only; Super Admin full archive before purge.
 - **Legal:** institution is controller; platform is processor; no DOB by default.
 - **Legacy:** internal non-public `ParaRobo` institution; oldest admin -> owner,
   rest -> employees.
 - **Transfers:** new account at the new institution; old principal deactivated;
   old data stays.
-- **Deferred:** billing, exam history/top-N (v2.1), custom domains, shared family
-  emails.
+- **Deferred:** exam history/top-N (v2.1), custom domains, shared family emails,
+  student SMS OTP.
 - **Execution:** P20.0 baseline freeze only; G1+ needs separate approval.
+
+**Amended 2026-11-06:** billing/plans are in v2.0; Owner + Admin manage billing;
+email + SMS verify institution/staff contacts; the plan table and platform
+ceiling above replace the old 5/500/50/1000 limits; invoices/payments/credit
+notes are retained on purge. Prices are INR 10,000/20,000 monthly with 18% GST
+placeholder; exactly one Admin; Elite subdomain only; Hostinger VPS + managed
+services; expiry uses scheduled-end completion plus 15-minute recovery.
 
 ### 2026-11-01 — Final version consolidation (approved plan)
 

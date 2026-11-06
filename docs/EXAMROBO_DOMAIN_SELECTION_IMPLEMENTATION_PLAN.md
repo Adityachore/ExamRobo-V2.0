@@ -4,6 +4,9 @@
 **Status:** Proposed; repository audit required before coding  
 **Primary requirement:** Aptitude questions are common to every student. Technical questions depend on one or more domains the student selects before starting the exam.
 
+> **Historical plan (pre-v1.5).** Domain selection is implemented. Current
+> behavior is in `Brain/Flow.md`, `Brain/Schema.md` and `Brain/PRD.md`.
+
 ## 1. Goal and expected behaviour
 
 A student taking a domain-aware exam must be able to select one technical domain or multiple technical domains before the exam timer starts. The exam then contains:

@@ -326,9 +326,9 @@ client cannot choose the outcome. An unknown kind is **400**.
 
 | Tier | Kinds | Outcome |
 |---|---|---|
-| A — instant lock | `screenshot_key`, `recording_revoked` | exam submitted, `MISCONDUCT` flag raised, student signed out |
+| A — instant lock | `screenshot_key` | exam submitted, `MISCONDUCT` flag raised, student signed out |
 | B — warning | `tab_blur`, `fullscreen_exit`, `clipboard`, `context_menu`, `print`, `second_window`, `second_session`, `display_change` | strike counted against a shared budget of 3; the third submits the exam |
-| C — log only | `devtools`, `share_surface`, `os_chord` | recorded in the event feed, no strike |
+| C — log only | `devtools`, `os_chord` | recorded in the event feed, no strike |
 
 `os_chord` is the bare operating-system key press: Windows consumes the
 snipping-tool chord (Win+Shift+S) before the page ever sees it, so this is the
@@ -374,10 +374,10 @@ student on instance B.
 - Active client capture, chunk upload, recording review routes and the
   Recordings admin page are removed.
 - The `recordings` table, existing rows, `RECORDINGS_DIR` volume and compose
-  mount are retained for data preservation. Admin event deletion may still
-  clean the directory through `removeRecordingDirs`.
-- `recording_revoked` remains an accepted historical integrity kind; it is not
-  emitted by the current client.
+  mount are retained for data preservation. Event deletion archives the event
+  and keeps its stored files.
+- `recording_revoked` remains valid only in the historical proctor-events CHECK
+  constraint; it is no longer registered or reportable.
 
 ## Operational rules
 - The server never exposes `correct_idx` before submit.

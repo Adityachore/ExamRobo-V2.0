@@ -106,7 +106,7 @@
 ### Integrity lockout (R-030, R-033)
 - The client detects a violation and posts the **kind**; the server decides the
   tier and the outcome.
-- Tier A (screenshot key, recording revoked): the server submits the paper
+- Tier A (screenshot key): the server submits the paper
   with `submit_reason = integrity_lockout`, writes the lock reason, raises a
   `MISCONDUCT` flag, pushes `submitted` + `locked` over the socket and signs
   the student out. Every later call on that paper is refused with 409
@@ -151,7 +151,7 @@
 ### Screenshot key (R-030)
 - The key press posts `screenshot_key` (Tier A) and the exam ends on the spot.
 - The page cannot stop the operating system from taking the picture — the
-  student instructions say so, and the screen recording is the evidence.
+  student instructions say so, and the proctor event log records the attempt.
 
 ### Force-submit by proctor (R-032)
 - Proctor action → WS kick + paper graded immediately regardless of remaining time.

@@ -1,5 +1,10 @@
 # ExamRobo — Final Version Audit
 
+> **Historical document (2026-11-01).** This audit describes the earlier
+> `ui/redesign` tree. Current baseline: v1.5.0 at `3c6518b`, migrations `001–013`,
+> 161 unit tests and 187 smoke assertions. See `Brain/ProjectReview.md` and
+> `Brain/Start.md` for the current state.
+
 Audit date: 2026-11-01
 Auditor role: senior developer / release owner
 Scope: every ExamRobo tree on this machine, the Brain documentation set, git state,

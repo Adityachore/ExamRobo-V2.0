@@ -15,32 +15,32 @@ Refer to the files in `Brain/` for project documentation.
 ### Specifications
 - **PRD.md**: product requirements (R-001..R-070).
 - **TRD.md**: technical requirements — the API contract, error dialect, WS protocol.
-- **Schema.md**: the 13 database tables.
+- **Schema.md**: the 18 domain tables plus the migration ledger.
 - **Design.md**: UI layout, palette, component tree.
 - **Flow.md**: happy paths and failure paths.
-- **Plan.md**: implementation plan (per phase).
-- **FutureUpdates.md**: planned changes after the current release.
+- **Plan.md** / **FutureUpdates.md**: created by `specs-agent` on first use; not present yet.
 
 ### Source Code
 | Path | What lives there |
 |---|---|
-| `server/index.js` | Express app, route mounts, error handling, WebSocket `/ws`, expiry sweeper |
-| `server/routes/` | `auth`, `student`, `tickets`, `exam`, `admin`, `bank` |
-| `server/services/` | `paper`, `grading`, `views`, `live`, `sessions`, `lockout`, `redis`, `integrity`, `competency`, `analytics` |
+| `server/app.js` | Express app, route mounts, error handling, WebSocket `/ws` |
+| `server/index.js` | process bootstrap: migrations, Redis, listener, expiry and section sweepers |
+| `server/routes/` | `auth`, `student`, `tickets`, `exam`, `admin`, `bank`, `seb`, `ws` |
+| `server/services/` | `paper`, `grading`, `views`, `live`, `sessions`, `lockout`, `redis`, `integrity`, `competency`, `analytics`, `attempts`, `domains`, `event-config`, `results`, `seb`, `section-flow`, `ws-tickets` |
 | `server/middleware/` | `auth` (JWT + roles), `security` (headers, CORS, rate limits — shared through Redis when it is up), `async` (crash-safe routes) |
 | `server/scripts/seed.js` | truncate + seed (admin, students, 10 tagged bank questions, one event) |
 | `server/scripts/migrate.js` | applies `server/sql/migrations/*.sql` in order, then the taxonomy, then the backfill |
 | `server/sql/schema.sql` | full schema (initdb on a fresh volume) |
 | `server/sql/migrations/` | append-only incremental changes |
-| `server/sql/taxonomy.sql` | the skills reference data (39 skills), re-applied on every boot and after a truncate |
+| `server/sql/taxonomy.sql` | the skills reference data (48 skills), re-applied on every boot and after a truncate |
 | `server/sql/backfill.sql` | rebuilds the frozen competency of the papers that predate the taxonomy, applied after the taxonomy |
-| `server/smoke.mjs` | 156-assertion end-to-end contract test (truncates the DB first) |
+| `server/smoke.mjs` | 187-assertion end-to-end contract test (truncates the DB first) |
 | `server/load/k6.js` | k6 load scenario (setup creates the event + roster) |
-| `server/test/` | unit tests: `lockout`, `redis-lockout`, `security`, `paper`, `grading`, `integrity`, `concurrency`, `client-signals`, `competency`, `analytics`, `async-errors` |
-| `web/src/` | the white-theme SPA (27 files, ported 1:1) |
+| `server/test/` | unit tests: `analytics`, `async-errors`, `calculator`, `client-signals`, `competency`, `concurrency`, `domains`, `event-config`, `grading`, `integrity`, `lockout`, `paper`, `redis-lockout`, `results`, `scratch-db`, `seb`, `sections`, `security`, `ws-tickets` |
+| `web/src/` | the white-theme SPA (38 files, ported 1:1) |
 | `web/nginx.conf` | production routing: SPA + `/api` + `/ws` |
 | `web/vite.config.js` | dev server + proxy to `:4000` |
-| `docker-compose.yml` | db (5450), redis (6379), api (4000), web (8080) |
+| `docker-compose.yml` | db (5450), redis (6379), api (4000), web (8083) |
 
 ### Test Lab (sibling folder, `..\Exam-Robo-TestLab\`)
 | Path | What it is |
