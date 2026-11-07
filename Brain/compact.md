@@ -206,8 +206,8 @@ v1.5.0 (`Brain/VERSION`)
   array, so two events cannot leak a chosen domain into each other.
 
 ## Verified (current)
-- **2026-11-08 (G0-local):** `cd server && npm run verify` PASS — preflight PG +
-  Redis, unit, web build, smoke 187/187. Evidence:
+- **2026-11-08 (G0-local):** `cd server && npm run verify` PASS on a clean tree
+  at `1791455` — preflight PG + Redis, unit, web build, smoke 187/187. Evidence:
   `docs/phase2/evidence/baseline.md`. G0 gate is still **partial**.
 - **2026-11-06 (checkpoint):** v2 UI/docs checkpoint committed in `a52acd9`;
   `UI Reference/` is local-only. The local Docker stack is healthy.

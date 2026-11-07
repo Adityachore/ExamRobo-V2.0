@@ -2,7 +2,8 @@
 
 - Date: 2026-11-08
 - Branch: `feat/saas-v2`
-- HEAD at verification: `a52acd9`
+- HEAD at first verification: `a52acd9` (working tree had Brain doc edits only)
+- HEAD at clean-tree confirmation: `1791455`
 - Frozen code: `b5ddb76` (`v1.5.0`)
 - Docs baseline: `3c6518b` (`v1.5.0-baseline`)
 - Host: Windows, Node `v24.21.0`, npm `11.5.2`, Docker `29.5.2`
@@ -34,6 +35,12 @@ npm run verify
 Overall: **PASS**. The smoke test ran against a scratch database, not the live
 `examrobo` database.
 
+## Clean-tree confirmation
+
+The verify command was repeated after the Brain/evidence docs were committed, at
+HEAD `1791455`, with a clean working tree. All four phases passed again
+(unit `1384.4423 ms`, smoke `187 passed, 0 failed`).
+
 ## G0 status
 
 **PARTIAL — local verification green, production-data closure missing.**
@@ -42,8 +49,7 @@ The following G0 items are still open:
 
 - restore of a production-like backup with checksum and timing evidence;
 - legacy identity collision report (duplicate emails, identity conflicts);
-- named gate owner and independent reviewer;
-- final clean-tree confirmation after this documentation commit.
+- named gate owner and independent reviewer.
 
 The owner authorized the isolated G1 synthetic POC despite these blockers. That
 waiver does not pass G0 and does not authorize G2.

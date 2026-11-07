@@ -224,7 +224,7 @@ Working-tree decisions taken for the freeze:
 | P20-01 | G0 | Baseline freeze: locks, docs, tag, branch | tag `v1.5.0-baseline`; no unrelated diff | **done** (`3c6518b`) |
 | P20-02 | G0 | Decision register + Brain sync | this file + PRD/TRD pointers + task queue | **done** |
 | P20-03 | G0 | Verify with Postgres + Redis up | all four phases PASS | **partial** — local verification green; production-data closure blocked |
-| P20-03a | G0 | Clean tree, four-phase verify, baseline evidence | all four phases PASS + `docs/phase2/evidence/baseline.md` | **local PASS** — all four phases green; evidence written; clean-tree confirmation pending |
+| P20-03a | G0 | Clean tree, four-phase verify, baseline evidence | all four phases PASS + `docs/phase2/evidence/baseline.md` | **DONE** — 4/4 phases green at clean HEAD `1791455`; smoke 187/187 |
 | P20-03b | G0 | Restore production-like backup; identity collision scan; owners/reviewers | restore + collision report accepted | **blocked** — no backup or collision evidence available; G0 stays partial |
 | P20-04 | G1 | Isolated RLS proof: roles, policies, cross-tenant denial, no `BYPASSRLS` | every attack case denied; app role cannot bypass | **authorized** — synthetic POC only; G0 partial waiver recorded; G2 blocked |
 | P20-05 | G2 | Tenant schema, migrations 014+, `ParaRobo` backfill, RLS enforced | migration rehearsal on a restored copy passes; counts match | pending |
@@ -305,10 +305,10 @@ staff MFA, mobile apps.
   no production-like backup or legacy collision report is available. G1 uses
   synthetic fixtures only; G2 remains blocked.
 - 2026-11-08 G0-local: preflight Postgres PASS, preflight Redis PASS, unit tests
-  PASS, web build PASS, smoke test PASS (187/187). Evidence:
-  `docs/phase2/evidence/baseline.md`. Production-data closure remains blocked.
-- Next action: confirm the clean tree, then build the isolated G1 POC and stop
-  for independent review.
+  PASS, web build PASS, smoke test PASS (187/187), repeated on a clean tree at
+  `1791455`. Evidence: `docs/phase2/evidence/baseline.md`. Production-data
+  closure remains blocked.
+- Next action: build the isolated G1 POC and stop for independent review.
 - Decision amendment (2026-11-06): billing/plans, Owner + Admin billing rights,
   email + SMS contact OTP, plan-table limits with a platform ceiling, and
   billing-record retention on purge are now in v2.0.

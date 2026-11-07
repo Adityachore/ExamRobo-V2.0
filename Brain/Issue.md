@@ -19,11 +19,11 @@ the authoritative design is `docs/Brain-Phase2-Production-Ready/`.
 - T-1521 browser click-through (v1.5; user action).
 
 ### Open — baseline / verification
-- **G0 is partial: local verification is green, production data is not.** All
-  four verify phases pass (smoke 187/187) and
+- **G0-local is closed; the full G0 gate is partial.** All four verify phases
+  passed on a clean tree at `1791455` (smoke 187/187) and
   `docs/phase2/evidence/baseline.md` exists. G0 still needs a production-like
   backup restore, the legacy identity collision report, and named
-  owners/reviewers. → P20-03a/P20-03b.
+  owners/reviewers. → P20-03b.
 - **The docs, decision-lock and v2 UI checkpoint is committed** in `a52acd9`.
   `UI Reference/` is intentionally local-only and ignored.
 - **G1 isolated POC is authorized** (2026-11-06) despite G0's production-data

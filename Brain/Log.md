@@ -13,14 +13,15 @@
 - **G0-local verification passed.** `cd server && npm run verify`:
   preflight Postgres PASS, preflight Redis PASS, unit PASS, web build PASS, smoke
   test PASS (`187 passed, 0 failed`). The smoke test used the disposable
-  `examrobo_smoke` scratch database.
+  `examrobo_smoke` scratch database. Repeated on a clean tree at `1791455` with
+  the same result.
 - **Environment note.** Docker publishes IPv4 only, so verification used
   `127.0.0.1` and the root `.env` `DB_PASSWORD`; the `DATABASE_URL` password in
   `server/.env` is stale. No secret was printed.
 - **Evidence.** Added `docs/phase2/evidence/baseline.md`. G0 production-data
   closure still needs a restore/checksum, collision report, and named reviewers.
-- **Next:** confirm the clean tree, build the isolated G1 harness, run the
-  SEC-001..016 attack suite, write G1 evidence, and stop for independent review.
+- **Next:** build the isolated G1 harness, run the SEC-001..016 attack suite,
+  write G1 evidence, and stop for independent review.
 
 ## 2026-11-06 (v2.0 UI-first implementation, contract-only)
 
