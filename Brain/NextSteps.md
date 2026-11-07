@@ -295,15 +295,19 @@ recorder, `module_minutes` and v6 `goResult` stay out (see `Brain/Not.md`).
 
 The 38-file design pack is `docs/Brain-Phase2-Production-Ready/`; the decision
 register is `Brain/ProjectReview.md`. Gate order is G0 → G1 → G2 → G3 → G4 → G5.
-**Only G0 (baseline) and the 2026-11-06 docs alignment are authorized. Do not
-start G1 without explicit approval.**
+**G0 (baseline) and the isolated G1 security POC are authorized as of
+2026-11-06. G0 is partial because the production-like restore and collision
+scan are unavailable. G1 is synthetic-only; G2 and production tenant work remain
+blocked.**
 
 | ID | Req | Task | Agent | Depends On | Status |
 |---|---|---|---|---|---|
 | P20-01 | - | Baseline freeze: restore lockfiles, keep graphify config + PDF deletion, correct `docs/VERSIONS.md` (001-013) and stale Brain facts | memory-agent | - | [X] COMPLETED — commit `3c6518b`, tag `v1.5.0-baseline`, branch `feat/saas-v2` |
 | P20-02 | - | Decision record: ProjectReview + PRD/TRD pointers + NextSteps/Issue/Log/userRequirement/Not/Later | memory-agent | P20-01 | [X] COMPLETED — this commit; amended 2026-11-06 for billing/plans/SMS/limits |
-| P20-03 | - | G0 gate: re-run `cd server && npm run verify` with Postgres + Redis up | critique-agent | P20-01 | [>] IN PROGRESS — latest known attempt could not reach Postgres/Redis (`ECONNREFUSED`); do not claim green until all four phases pass and `docs/phase2/evidence/baseline.md` exists |
-| P20-04 | R-101,R-102 | G1 security proof (isolated): DB roles, forced RLS, cross-tenant denial, no runtime `BYPASSRLS` | senior-audit-engineer-agent + senior-backend-engineer-agent | P20-03 | [ ] PENDING — requires explicit approval |
+| P20-03 | - | G0 gate: clean tree + four-phase verify + production-data closure | critique-agent | P20-01 | [>] PARTIAL — G0-local is green; production data is blocked |
+| P20-03a | - | G0-local: clean tree, `cd server && npm run verify`, `docs/phase2/evidence/baseline.md` | critique-agent | P20-01 | [>] LOCAL PASS — 4/4 phases green, smoke 187/187; clean-tree confirmation pending |
+| P20-03b | - | G0 production data: restore production-like backup, run identity collision scan, name owners/reviewers | senior-devops-engineer-agent | P20-03a | [B] BLOCKED — no backup or collision evidence available |
+| P20-04 | R-101,R-102 | G1 security proof (isolated): DB roles, forced RLS, cross-tenant denial, no runtime `BYPASSRLS` | senior-audit-engineer-agent + senior-backend-engineer-agent | P20-03a | [ ] AUTHORIZED — synthetic POC only; G0 partial waiver recorded; G2 blocked |
 | P20-05 | R-103..R-110 | Tenant schema: migrations 014+ (institutions, principals, per-institution domains/skills, RLS policies, legacy `ParaRobo` backfill) | senior-backend-engineer-agent | P20-04 | [ ] PENDING |
 | P20-06 | R-111..R-125 | Identity + API v2: staff/super/student auth, `/api/v2`, sessions, email+SMS contact OTP, PIN, billing/plans, import, legacy bridge; `/api` exam routes stay compatible | senior-backend-engineer-agent + senior-frontend-engineer-agent | P20-05 | [ ] PENDING |
 | P20-07 | R-126..R-137 | Privacy/ops/capacity: export/purge, retention, India hosting, backup/restore, 80/100% admission, plan/platform ceilings | senior-devops-engineer-agent + performance-optimization-engineer-agent | P20-06 | [ ] PENDING |

@@ -1,5 +1,27 @@
 # ExamRobo Log
 
+## 2026-11-08 (G0 local verification + G1 POC authorization)
+
+- **Checkpoint committed.** `a52acd9` — `chore(phase20): checkpoint v2 UI and
+  docs before G0` (98 files, 3575 insertions, 290 deletions). `UI Reference/` is
+  intentionally ignored and not committed. Remote
+  `Adityachore/ExamRobo-V2.0` is empty; no push was made.
+- **Authorization resolved.** Owner approved G0 plus an isolated, synthetic G1
+  security POC only. G0 remains **partial** because no production-like backup or
+  legacy collision report is available. The G1 POC proceeds under a recorded
+  waiver; G2 and all production tenant work remain blocked.
+- **G0-local verification passed.** `cd server && npm run verify`:
+  preflight Postgres PASS, preflight Redis PASS, unit PASS, web build PASS, smoke
+  test PASS (`187 passed, 0 failed`). The smoke test used the disposable
+  `examrobo_smoke` scratch database.
+- **Environment note.** Docker publishes IPv4 only, so verification used
+  `127.0.0.1` and the root `.env` `DB_PASSWORD`; the `DATABASE_URL` password in
+  `server/.env` is stale. No secret was printed.
+- **Evidence.** Added `docs/phase2/evidence/baseline.md`. G0 production-data
+  closure still needs a restore/checksum, collision report, and named reviewers.
+- **Next:** confirm the clean tree, build the isolated G1 harness, run the
+  SEC-001..016 attack suite, write G1 evidence, and stop for independent review.
+
 ## 2026-11-06 (v2.0 UI-first implementation, contract-only)
 
 - **Approach locked with the user.** Build the UI before the v2 backend; call only

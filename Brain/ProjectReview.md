@@ -3,8 +3,10 @@
 **Status:** approved 2026-11-05; amended 2026-11-06 for billing, plans, SMS OTP
 and plan limits. Baseline frozen at `v1.5.0-baseline` (`3c6518b`), branch
 `feat/saas-v2`.
-**Authorization:** P20.0 (baseline) only. Gate G1 and everything after it
-requires a separate explicit approval.
+**Authorization:** P20.0 baseline and the isolated G1 security proof
+(`P2-0101`..`P2-0106`) are approved as of 2026-11-06. G1 is limited to an
+isolated, synthetic PostgreSQL 16 harness; G2 and every production tenant change
+require G1 to pass and a separate explicit approval.
 **Authoritative design:** `docs/Brain-Phase2-Production-Ready/` (38 files).
 This file is the Brain entry point and the decision register, not a copy of the
 pack.
@@ -35,7 +37,7 @@ register wins until the pack is amended.
 
 | Layer | Source | Rule |
 |---|---|---|
-| Reality | code at `b5ddb76` + `server/sql/migrations/001..013` + `npm run verify` | wins every conflict |
+| Reality | frozen code at `b5ddb76` (tag `v1.5.0`); docs baseline `3c6518b` (tag `v1.5.0-baseline`) + `server/sql/migrations/001..013` + `npm run verify` | wins every conflict |
 | Intent | `docs/Brain-Phase2-Production-Ready/` | design authority; never edit to hide a gap |
 | Memory | `Brain/` | state, decisions and task queue; correct it when reality moves |
 | Reference | `Downloads\examrobo-frontend\web` / `server` | read-only contract reference |
@@ -221,8 +223,10 @@ Working-tree decisions taken for the freeze:
 |---|---|---|---|---|
 | P20-01 | G0 | Baseline freeze: locks, docs, tag, branch | tag `v1.5.0-baseline`; no unrelated diff | **done** (`3c6518b`) |
 | P20-02 | G0 | Decision register + Brain sync | this file + PRD/TRD pointers + task queue | **done** |
-| P20-03 | G0 | Verify with Postgres + Redis up | all four phases PASS | **open** — stack is up; `npm run verify` not re-run after the docs audit |
-| P20-04 | G1 | Isolated RLS proof: roles, policies, cross-tenant denial, no `BYPASSRLS` | every attack case denied; app role cannot bypass | pending — needs approval |
+| P20-03 | G0 | Verify with Postgres + Redis up | all four phases PASS | **partial** — local verification green; production-data closure blocked |
+| P20-03a | G0 | Clean tree, four-phase verify, baseline evidence | all four phases PASS + `docs/phase2/evidence/baseline.md` | **local PASS** — all four phases green; evidence written; clean-tree confirmation pending |
+| P20-03b | G0 | Restore production-like backup; identity collision scan; owners/reviewers | restore + collision report accepted | **blocked** — no backup or collision evidence available; G0 stays partial |
+| P20-04 | G1 | Isolated RLS proof: roles, policies, cross-tenant denial, no `BYPASSRLS` | every attack case denied; app role cannot bypass | **authorized** — synthetic POC only; G0 partial waiver recorded; G2 blocked |
 | P20-05 | G2 | Tenant schema, migrations 014+, `ParaRobo` backfill, RLS enforced | migration rehearsal on a restored copy passes; counts match | pending |
 | P20-06 | G3 | Identity + `/api/v2` + sessions/OTP/PIN + billing/plans + legacy bridge | contract tests, staff/super/student flows, billing/plan tests, `/api` still green | pending |
 | P20-07 | G4 | Privacy/export/purge, India hosting, backup/restore, load/limits | restore rehearsal, 80/100% admission, plan-ceiling proof | pending |
@@ -231,9 +235,14 @@ Working-tree decisions taken for the freeze:
 ### Gate definitions
 
 - **G0 — baseline:** the tree is clean, the tag exists, and `npm run verify` is
-  green. Skipped phases do not count as green.
+  green. Skipped phases do not count as green. A production-like restore and the
+  identity collision report are required; without them G0 is **partial**, never
+  green.
 - **G1 — security proof:** forced RLS is proven in isolation before any product
-  route is written. This is the hard gate; failing it stops the project.
+  route is written. This is the hard gate; failing it stops the project. The
+  owner approved the isolated synthetic POC on 2026-11-06 despite G0's
+  production-data items being blocked. This is a recorded waiver for the POC
+  only; it does not pass G0 and does not authorize G2.
 - **G2 — data:** migrations and the `ParaRobo` backfill survive a restore and
   a rehearsal; no orphan rows.
 - **G3 — product:** identities, `/api/v2`, billing and plans work; old `/api`
@@ -285,12 +294,21 @@ staff MFA, mobile apps.
 ## 10. Evidence
 
 - Baseline commit: `3c6518b` — `chore(baseline): freeze v1.5.0 and correct stale docs`.
-- Tag: `v1.5.0-baseline`. Branch: `feat/saas-v2`.
+- Release commit: `b5ddb76` — tag `v1.5.0`.
+- Phase 2 branch: `feat/saas-v2`; checkpoint `a52acd9`.
+- The local stack is healthy (`examrobo-db`, `examrobo-redis`, `examrobo-api`,
+  `examrobo-web`).
 - `npm run verify` (2026-11-05): unit PASS, web build PASS,
   `preflight:postgres` SKIPPED (45s timeout), smoke SKIPPED (scratch DB not
   created). G0 is therefore **open**, not green.
-- Next action: start Postgres + Redis, re-run `npm run verify`, then freeze G0.
-  Do not start G1 before G0 is green and the user approves.
+- 2026-11-06 authorization: G0 + isolated G1 POC only. G0 is **partial** because
+  no production-like backup or legacy collision report is available. G1 uses
+  synthetic fixtures only; G2 remains blocked.
+- 2026-11-08 G0-local: preflight Postgres PASS, preflight Redis PASS, unit tests
+  PASS, web build PASS, smoke test PASS (187/187). Evidence:
+  `docs/phase2/evidence/baseline.md`. Production-data closure remains blocked.
+- Next action: confirm the clean tree, then build the isolated G1 POC and stop
+  for independent review.
 - Decision amendment (2026-11-06): billing/plans, Owner + Admin billing rights,
   email + SMS contact OTP, plan-table limits with a platform ceiling, and
   billing-record retention on purge are now in v2.0.

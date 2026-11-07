@@ -206,6 +206,11 @@ v1.5.0 (`Brain/VERSION`)
   array, so two events cannot leak a chosen domain into each other.
 
 ## Verified (current)
+- **2026-11-08 (G0-local):** `cd server && npm run verify` PASS — preflight PG +
+  Redis, unit, web build, smoke 187/187. Evidence:
+  `docs/phase2/evidence/baseline.md`. G0 gate is still **partial**.
+- **2026-11-06 (checkpoint):** v2 UI/docs checkpoint committed in `a52acd9`;
+  `UI Reference/` is local-only. The local Docker stack is healthy.
 - **2026-11-06 (v2 UI-first):** `cd web && npm run build` clean — Vite 8.3.5,
   2436 modules, JS 725.19 kB (gzip 206.88 kB), CSS 54.64 kB; only the existing
   chunk-size warning. Browser click-through is still pending.
@@ -221,9 +226,11 @@ v1.5.0 (`Brain/VERSION`)
   Postgres/Redis, so preflight and smoke are reported SKIPPED, not green.
 
 ## Open
-- G0 remains open: the latest known `npm run verify` could not reach Postgres/
-  Redis (`ECONNREFUSED`), so preflight and smoke are not green. No baseline
-  evidence file exists yet.
+- G0 is **partial**, not green: the four-phase local verify is green, but
+  production-like restore, identity collision report and named reviewers are not
+  recorded.
+- The isolated G1 security POC is authorized (synthetic fixtures only); G2 and
+  every production tenant change remain blocked.
 - v2 UI routes are built but contract-only; `/api/v2` is not implemented and
   legacy `/admin/*` routes stay active until parity/cutover.
 - P20-UI-09 browser click-through (public/platform/institution at 320/390/

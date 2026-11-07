@@ -19,13 +19,15 @@ the authoritative design is `docs/Brain-Phase2-Production-Ready/`.
 - T-1521 browser click-through (v1.5; user action).
 
 ### Open — baseline / verification
-- **G0 is not green on this machine.** The latest known `npm run verify` attempt
-  could not reach Postgres/Redis (`ECONNREFUSED`); preflight and smoke were
-  skipped. Do not claim G0 until all four phases pass and the evidence file
-  exists. → P20-03.
-- **The docs audit, decision-lock and v2 UI work are uncommitted by user
-  direction.** All Brain/pack/UI changes stay uncommitted until the user
-  approves. There is no `docs/phase2/evidence/baseline.md` yet.
+- **G0 is partial: local verification is green, production data is not.** All
+  four verify phases pass (smoke 187/187) and
+  `docs/phase2/evidence/baseline.md` exists. G0 still needs a production-like
+  backup restore, the legacy identity collision report, and named
+  owners/reviewers. → P20-03a/P20-03b.
+- **The docs, decision-lock and v2 UI checkpoint is committed** in `a52acd9`.
+  `UI Reference/` is intentionally local-only and ignored.
+- **G1 isolated POC is authorized** (2026-11-06) despite G0's production-data
+  blockers. This is a waiver for the synthetic proof only; G2 remains blocked.
 - `server/.env` has a stale database password; pass `VERIFY_PG_URL` /
   `VERIFY_REDIS_URL` (host ports 5450 / 6379) for this machine.
 - The live database has no exam event (0 events, 0 papers).
