@@ -1,0 +1,153 @@
+{
+  "generated_at": "2026-11-08T13:53:25.497Z",
+  "database": "examrobo_g1_test",
+  "postgres_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "pass": 24,
+  "fail": 0,
+  "results": [
+    {
+      "id": "ROLE-01",
+      "name": "required roles exist",
+      "ok": true,
+      "detail": "9 roles"
+    },
+    {
+      "id": "ROLE-02",
+      "name": "every role is NOSUPERUSER and NOBYPASSRLS",
+      "ok": true,
+      "detail": "all clean"
+    },
+    {
+      "id": "ROLE-03",
+      "name": "login is limited to the runtime and migration identities",
+      "ok": true,
+      "detail": "split is correct"
+    },
+    {
+      "id": "ROLE-04",
+      "name": "table owner owns every proof table",
+      "ok": true,
+      "detail": "15 tables"
+    },
+    {
+      "id": "ROLE-05",
+      "name": "migrator is only a member of the table owner",
+      "ok": true,
+      "detail": "examrobo_migrator->examrobo_table_owner"
+    },
+    {
+      "id": "ROLE-06",
+      "name": "runtime privileges are narrow",
+      "ok": true,
+      "detail": "{\"app_can_truncate\":false,\"app_can_create\":false,\"app_can_read_key\":false,\"auth_can_read_students\":false,\"platform_can_read_students\":false,\"app_can_call_auth\":false,\"app_can_call_context\":true,\"context_can_read_key\":true,\"context_can_read_students\":false}"
+    },
+    {
+      "id": "ROLE-07",
+      "name": "every tenant table has forced RLS and a tenant policy",
+      "ok": true,
+      "detail": "institutions:true/true/true, invoices:true/true/true, students:true/true/true, tenant_children:true/true/true, tenant_parents:true/true/true"
+    },
+    {
+      "id": "ROLE-08",
+      "name": "tenant table registry covers every classified table",
+      "ok": true,
+      "detail": "all registered"
+    },
+    {
+      "id": "SEC-001",
+      "name": "tenant A cannot read tenant B row by guessed UUID",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "id": "SEC-002",
+      "name": "tenant A cannot update tenant B row",
+      "ok": true,
+      "detail": "updated=0, name=Event One"
+    },
+    {
+      "id": "SEC-003",
+      "name": "tenant A cannot insert a row with tenant B institution id",
+      "ok": true,
+      "detail": "42501: new row violates row-level security policy for table \"tenant_parents\""
+    },
+    {
+      "id": "SEC-004",
+      "name": "forged app.iid GUC does not verify or grant access",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "id": "SEC-005",
+      "name": "unsigned, malformed, expired, tampered and wrong-key contexts are denied",
+      "ok": true,
+      "detail": "unsigned=0, malformed=0, expired=0, tampered=0, wrongKey=0"
+    },
+    {
+      "id": "SEC-006",
+      "name": "stale context is denied after principal disablement",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "id": "SEC-007",
+      "name": "stale context is denied after institution epoch change",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "id": "SEC-008",
+      "name": "app role cannot call the auth lookup function",
+      "ok": true,
+      "detail": "42501: permission denied for schema auth"
+    },
+    {
+      "id": "SEC-009",
+      "name": "auth role cannot select student or auth tables directly",
+      "ok": true,
+      "detail": "42501: permission denied for function current_iid; 42501: permission denied for table principals"
+    },
+    {
+      "id": "SEC-010",
+      "name": "app role cannot change the private HMAC key",
+      "ok": true,
+      "detail": "42501: permission denied for schema app_private"
+    },
+    {
+      "id": "SEC-011",
+      "name": "platform dashboard cannot read raw tenant rows but can read the aggregate projection",
+      "ok": true,
+      "detail": "raw=0, direct=true, aggregate=1"
+    },
+    {
+      "id": "SEC-012",
+      "name": "scoped support grant cannot read another institution",
+      "ok": true,
+      "detail": "wrongGrant=0, ownTenant=1, otherRow=0"
+    },
+    {
+      "id": "SEC-013",
+      "name": "pooled connection reuse leaves no tenant context behind",
+      "ok": true,
+      "detail": "A=1, empty=0, afterError=0"
+    },
+    {
+      "id": "SEC-014",
+      "name": "stale worker lease cannot execute a tenant mutation",
+      "ok": true,
+      "detail": "updated=0"
+    },
+    {
+      "id": "SEC-015",
+      "name": "composite foreign key rejects a foreign tenant parent",
+      "ok": true,
+      "detail": "23503: insert or update on table \"tenant_children\" violates foreign key constraint \"tenant_children_same_tenant_fk\""
+    },
+    {
+      "id": "SEC-016",
+      "name": "new tenant table omitted from the registry is detected",
+      "ok": true,
+      "detail": "tenant_unregistered"
+    }
+  ]
+}

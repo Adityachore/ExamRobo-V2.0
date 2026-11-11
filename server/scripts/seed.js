@@ -150,33 +150,40 @@ export async function seedDatabase({
   // taxonomy has to come back before the questions can point at it.
   await applyTaxonomy();
 
+  const { rows: institutions } = await q(
+    `SELECT id FROM institutions WHERE slug = 'pararobo' AND is_internal`,
+  );
+  if (!institutions.length) throw new Error('the legacy ParaRobo institution is missing');
+  const institutionId = institutions[0].id;
+
   const rounds = Number(process.env.BCRYPT_ROUNDS || 10);
   const hash = await bcrypt.hash(ADMIN.password, rounds);
   const { rows: admins } = await q(
-    `INSERT INTO admins (email, password_hash, name) VALUES ($1,$2,$3)
+    `INSERT INTO admins (email, password_hash, name, institution_id) VALUES ($1,$2,$3,$4)
      ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
      RETURNING id, email, name`,
-    [ADMIN.email, hash, 'Exam Admin'],
+    [ADMIN.email, hash, 'Exam Admin', institutionId],
   );
 
   const skills = await skillIds([...new Set(BANK.map((b) => b.skill))]);
 
   for (const item of BANK) {
     const { rows: questions } = await q(
-      `INSERT INTO questions (category, skill_id, difficulty) VALUES ($1,$2,$3)
+      `INSERT INTO questions (category, skill_id, difficulty, institution_id)
+       VALUES ($1,$2,$3,$4)
        RETURNING id, category`,
-      [item.category, skills.get(item.skill), item.difficulty],
+      [item.category, skills.get(item.skill), item.difficulty, institutionId],
     );
     const question = questions[0];
     await q(
-      `INSERT INTO question_variants (question_id, stem, options, correct_idx)
-       VALUES ($1,$2,$3,$4)`,
-      [question.id, item.stem, item.options, item.correct],
+      `INSERT INTO question_variants (question_id, stem, options, correct_idx, institution_id)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [question.id, item.stem, item.options, item.correct, institutionId],
     );
     await q(
-      `INSERT INTO question_variants (question_id, stem, options, correct_idx)
-       VALUES ($1,$2,$3,$4)`,
-      [question.id, `${item.stem}${VARIANT_SUFFIX[0]}`, item.options, item.correct],
+      `INSERT INTO question_variants (question_id, stem, options, correct_idx, institution_id)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [question.id, `${item.stem}${VARIANT_SUFFIX[0]}`, item.options, item.correct, institutionId],
     );
   }
 
@@ -195,8 +202,8 @@ export async function seedDatabase({
   );
   const { rows: events } = await q(
     `INSERT INTO exam_events
-       (name, starts_at, duration_min, categories, question_counts, section_limits, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+       (name, starts_at, duration_min, categories, question_counts, section_limits, created_by, institution_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [
       eventName,
       startsAt,
@@ -205,15 +212,16 @@ export async function seedDatabase({
       config,
       sectionLimits,
       admins[0].id,
+      institutionId,
     ],
   );
   const event = events[0];
 
   for (const student of STUDENTS) {
     await q(
-      `INSERT INTO roster_emails (event_id, email, name) VALUES ($1,$2,$3)
+      `INSERT INTO roster_emails (event_id, email, name, institution_id) VALUES ($1,$2,$3,$4)
        ON CONFLICT (event_id, email) DO UPDATE SET name = EXCLUDED.name`,
-      [event.id, student.email, student.name],
+      [event.id, student.email, student.name, institutionId],
     );
   }
 

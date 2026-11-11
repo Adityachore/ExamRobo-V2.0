@@ -18,8 +18,9 @@
 -- Idempotent: a paper that already has a snapshot is left alone, and
 -- ON CONFLICT keeps the insert safe if it runs twice.
 
-INSERT INTO paper_questions (paper_id, qno, variant_id, skill_id, skill_code, difficulty)
-SELECT p.id, t.ord - 1, t.variant_id, qq.skill_id, s.code, qq.difficulty
+INSERT INTO paper_questions
+  (paper_id, qno, variant_id, skill_id, skill_code, difficulty, institution_id)
+SELECT p.id, t.ord - 1, t.variant_id, qq.skill_id, s.code, qq.difficulty, p.institution_id
   FROM papers p
   CROSS JOIN LATERAL unnest(p.variant_ids) WITH ORDINALITY AS t(variant_id, ord)
   JOIN question_variants v ON v.id = t.variant_id

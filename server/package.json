@@ -13,7 +13,8 @@
     "import-bank": "node scripts/import-bank.mjs",
     "smoke": "node smoke.mjs",
     "load": "node scripts/load.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "test:g1": "node scripts/g1.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

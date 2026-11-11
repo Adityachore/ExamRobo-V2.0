@@ -352,6 +352,11 @@ async function run() {
   try {
     await migrate();
     await applyTaxonomy();
+    const { rows: institutions } = await client.query(
+      `SELECT id FROM institutions WHERE slug = 'pararobo' AND is_internal`,
+    );
+    if (!institutions.length) throw new Error('the legacy ParaRobo institution is missing');
+    const institutionId = institutions[0].id;
     const skills = [...new Set(selected.map((item) => item.skill))];
     const { rows: skillRows } = await client.query(
       `SELECT code FROM skills WHERE code = ANY($1::text[])`,
@@ -389,16 +394,18 @@ async function run() {
         continue;
       }
       const { rows } = await client.query(
-        `INSERT INTO questions (category, skill_id, difficulty, active, source_key)
-         SELECT $1, id, $2, true, $4 FROM skills WHERE code = $3
+        `INSERT INTO questions (category, skill_id, difficulty, active, source_key, institution_id)
+         SELECT $1, id, $2, true, $4, $5
+           FROM skills
+          WHERE code = $3 AND institution_id = $5
          RETURNING id`,
-        [item.category, item.difficulty, item.skill, item.sourceKey],
+        [item.category, item.difficulty, item.skill, item.sourceKey, institutionId],
       );
       if (!rows.length) throw new Error(`skill ${item.skill} disappeared during import`);
       await client.query(
-        `INSERT INTO question_variants (question_id, stem, options, correct_idx)
-         VALUES ($1,$2,$3,$4)`,
-        [rows[0].id, item.stem, item.options, item.correctIdx],
+        `INSERT INTO question_variants (question_id, stem, options, correct_idx, institution_id)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [rows[0].id, item.stem, item.options, item.correctIdx, institutionId],
       );
       present.add(item.sourceKey);
       inserted += 1;

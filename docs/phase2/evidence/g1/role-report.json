@@ -1,0 +1,1536 @@
+{
+  "generated_at": "2026-11-08T13:53:25.135Z",
+  "database": "examrobo_g1_test",
+  "postgres_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "roles": [
+    {
+      "rolname": "examrobo_app",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": true,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_auth_app",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": true,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_auth_fn",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_context_fn",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_migrator",
+      "rolsuper": false,
+      "rolinherit": true,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": true,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_platform_app",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": true,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_platform_fn",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_table_owner",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "examrobo_worker",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": true,
+      "rolreplication": false,
+      "rolbypassrls": false
+    }
+  ],
+  "memberships": [
+    {
+      "role": "examrobo_table_owner",
+      "member": "examrobo_migrator",
+      "admin_option": false
+    }
+  ],
+  "objects": [
+    {
+      "schema": "app",
+      "name": "institutions",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app",
+      "name": "invoices",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app",
+      "name": "job_queue",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app",
+      "name": "students",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app",
+      "name": "tenant_children",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app",
+      "name": "tenant_parents",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app",
+      "name": "tenant_table_registry",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app_private",
+      "name": "signing_keys",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "app_private",
+      "name": "support_access_grants",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "auth",
+      "name": "institution_auth_state",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "auth",
+      "name": "login_identifiers",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "auth",
+      "name": "memberships",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "auth",
+      "name": "principals",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "auth",
+      "name": "service_principals",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "platform",
+      "name": "tenant_aggregate",
+      "relkind": "r",
+      "owner": "examrobo_table_owner"
+    }
+  ],
+  "functions": [
+    {
+      "schema": "app",
+      "name": "b64url_decode",
+      "args": "p text",
+      "owner": "examrobo_context_fn"
+    },
+    {
+      "schema": "app",
+      "name": "context_canonical",
+      "args": "p_v text, p_kid text, p_iid text, p_sub text, p_ptype text, p_role text, p_sv text, p_epoch text, p_iat text, p_exp text, p_nonce text, p_scope text, p_grant text, p_job text, p_lease text",
+      "owner": "examrobo_context_fn"
+    },
+    {
+      "schema": "app",
+      "name": "ct_eq",
+      "args": "a bytea, b bytea",
+      "owner": "examrobo_context_fn"
+    },
+    {
+      "schema": "app",
+      "name": "current_iid",
+      "args": "",
+      "owner": "examrobo_context_fn"
+    },
+    {
+      "schema": "app",
+      "name": "unregistered_tenant_tables",
+      "args": "",
+      "owner": "examrobo_table_owner"
+    },
+    {
+      "schema": "auth",
+      "name": "lookup_login",
+      "args": "p_identifier text",
+      "owner": "examrobo_auth_fn"
+    },
+    {
+      "schema": "platform",
+      "name": "tenant_student_count",
+      "args": "p_institution_id uuid",
+      "owner": "examrobo_platform_fn"
+    }
+  ],
+  "table_grants": [
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_app",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_auth_fn",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_auth_fn",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_platform_fn",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "job_queue",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app",
+      "table_name": "tenant_table_registry",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "signing_keys",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "app_private",
+      "table_name": "support_access_grants",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "institution_auth_state",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "login_identifiers",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "memberships",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "principals",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "auth",
+      "table_name": "service_principals",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "DELETE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "INSERT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "REFERENCES",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "SELECT",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "TRIGGER",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "TRUNCATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "table_schema": "platform",
+      "table_name": "tenant_aggregate",
+      "privilege_type": "UPDATE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "institutions",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "invoices",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "students",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_children",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "DELETE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "INSERT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "SELECT",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "table_schema": "app",
+      "table_name": "tenant_parents",
+      "privilege_type": "UPDATE",
+      "is_grantable": "NO"
+    }
+  ],
+  "schema_grants": [
+    {
+      "schema": "app",
+      "grantee": "examrobo_app",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app",
+      "grantee": "examrobo_auth_app",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app",
+      "grantee": "examrobo_context_fn",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app",
+      "grantee": "examrobo_platform_app",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "CREATE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app",
+      "grantee": "examrobo_worker",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app_private",
+      "grantee": "examrobo_context_fn",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app_private",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "CREATE",
+      "is_grantable": false
+    },
+    {
+      "schema": "app_private",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "auth",
+      "grantee": "examrobo_auth_app",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "auth",
+      "grantee": "examrobo_auth_fn",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "auth",
+      "grantee": "examrobo_context_fn",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "auth",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "CREATE",
+      "is_grantable": false
+    },
+    {
+      "schema": "auth",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "platform",
+      "grantee": "examrobo_platform_app",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "platform",
+      "grantee": "examrobo_platform_fn",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    },
+    {
+      "schema": "platform",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "CREATE",
+      "is_grantable": false
+    },
+    {
+      "schema": "platform",
+      "grantee": "examrobo_table_owner",
+      "privilege_type": "USAGE",
+      "is_grantable": false
+    }
+  ],
+  "routine_grants": [
+    {
+      "grantee": "examrobo_app",
+      "routine_schema": "app",
+      "routine_name": "current_iid",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_auth_app",
+      "routine_schema": "auth",
+      "routine_name": "lookup_login",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_auth_fn",
+      "routine_schema": "auth",
+      "routine_name": "lookup_login",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "routine_schema": "app",
+      "routine_name": "b64url_decode",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "routine_schema": "app",
+      "routine_name": "context_canonical",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "routine_schema": "app",
+      "routine_name": "ct_eq",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "routine_schema": "app",
+      "routine_name": "current_iid",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_context_fn",
+      "routine_schema": "public",
+      "routine_name": "hmac",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_migrator",
+      "routine_schema": "app",
+      "routine_name": "unregistered_tenant_tables",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_platform_app",
+      "routine_schema": "platform",
+      "routine_name": "tenant_student_count",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "NO"
+    },
+    {
+      "grantee": "examrobo_platform_fn",
+      "routine_schema": "platform",
+      "routine_name": "tenant_student_count",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_table_owner",
+      "routine_schema": "app",
+      "routine_name": "unregistered_tenant_tables",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "YES"
+    },
+    {
+      "grantee": "examrobo_worker",
+      "routine_schema": "app",
+      "routine_name": "current_iid",
+      "privilege_type": "EXECUTE",
+      "is_grantable": "NO"
+    }
+  ]
+}

@@ -1,5 +1,81 @@
 # ExamRobo Log
 
+## 2026-11-08 (G2 implementation starts under scope-limited waiver)
+
+- **Owner directive:** "go for g2 I will provide test audit at last." G2
+  implementation may proceed on synthetic/scratch databases; no production
+  schema change, data backfill or tenant cutover. G1 remains **VERIFYING** and
+  G2 is **not approved**; the owner will provide the external G2 test audit after
+  implementation.
+- **Gate status:** P20-05 moved to **IN-PROGRESS**. The first deliverable is
+  migration `014` institution foundation, followed by the G2
+  expand/backfill/validate sequence.
+- **Migration 014 implemented.** `server/sql/migrations/014_institution_foundation.sql`
+  creates `institutions`, `institution_contacts`, `tenant_domains`, the internal
+  `ParaRobo` institution (`00000000-0000-4000-8000-000000000001`), nullable
+  `institution_id` columns on all 18 tenant tables, parent-derived backfill,
+  composite unique keys and tenant lookup indexes. It does **not** set NOT NULL,
+  enable RLS, add composite FKs or change global `skills.code` /
+  `questions.source_key` uniqueness.
+- **Schema and writers aligned.** `server/sql/schema.sql` mirrors the new tables,
+  columns and indexes. `taxonomy.sql` assigns the legacy institution,
+  `backfill.sql` preserves it on `paper_questions`, and both `scripts/seed.js`
+  and `scripts/import-bank.mjs` now write `institution_id`.
+- **Verification.** Scratch schema check: 20 institution columns, no null tenant
+  rows, legacy skills 48. Old-schema + 13-migration run: `014` applied, second
+  run `no migrations to apply`, ledger 14. Fixture backfill: all 18 tables
+  mapped to the legacy institution. Seed scratch: admins/events/roster/questions/
+  variants all map. Bank import scratch: 1100 questions + 1100 variants all map.
+  `node --test`: **167/167 pass**. `npm run verify` with
+  `VERIFY_PG_URL=postgres://examrobo:***@127.0.0.1:5450/postgres`: four phases
+  PASS, smoke **187/187**. The default `localhost` preflight can resolve to IPv6
+  while Docker publishes IPv4 only; use `127.0.0.1` for verification.
+- **Runner fact corrected.** The runner applies unledgered files once, records
+  checksums and refuses a changed checksum; it does not re-apply every file on
+  every boot. `014+` must still be immutable once applied and safe on a fresh or
+  partially migrated database.
+- **Next.** `015` identity control plane is blocked on the approved login policy
+  and source collision report. G1 remains **VERIFYING**; G2 is **IN-PROGRESS**,
+  not approved. No commit or push.
+
+## 2026-11-08 (gate test protocol + G1 reviewer handoff)
+
+- **Reusable gate protocol added.** `docs/phase2/GATE-REVIEW-PROTOCOL.md` makes
+  the order explicit: implement -> freeze SHA -> write `TEST-CASES.md` -> run
+  every case -> fix and rerun -> independent review -> approve. Evidence
+  requires commit, environment, DB version, command, timestamp, result and
+  reviewer; a checklist alone is not evidence.
+- **Per-gate test plans added.** `docs/phase2/test-plans/` now has
+  `G0-TEST-CASES.md` through `G5-TEST-CASES.md`, plus `_TEMPLATE.md` and an
+  index. G1 has all 24 cases written out; G2-G5 are structured catalogs marked
+  **waiting for implementation freeze**, not fake passes.
+- **G1 reviewer handoff added.** `docs/phase2/evidence/g1/REVIEWER-REPORT.md`
+  contains file hashes, exact PowerShell commands, expected counts, manual
+  security checks, stop conditions and the disposition template.
+- **Gate status unchanged.** G1 is **VERIFYING**, not approved; G0 remains
+  **PARTIAL**; G2 and migrations `014+` remain blocked. No commit or push.
+
+## 2026-11-08 (G1 isolated security proof: 24/24 PASS)
+
+- **G1 harness passes.** `cd server && npm run test:g1` created the disposable
+  `examrobo_g1_test` database, applied `server/sql/g1-poc.sql`, ran
+  `SEC-001..SEC-016` plus `ROLE-01..ROLE-08`, and dropped the database and roles.
+  Result: **24 passed, 0 failed** on PostgreSQL 16.15.
+- **Evidence written.** `docs/phase2/evidence/g1/` now contains
+  `test-output.txt`, `results.json`, `role-report.json`, `README.md` and
+  `THREAT-MODEL.md` with the trust-boundary diagram, attack mapping, out-of-scope
+  cases and reviewer checklist.
+- **Four harness defects fixed.** RLS policies were moved after the verifier
+  function; the role report was limited to the nine proof roles so the
+  privileged `examrobo` login was not misreported; SEC-008 now calls
+  `auth.lookup_login` through the app pool; SEC-004 uses a dedicated pool so
+  its forged `app.iid` cannot leak into later tests.
+- **Gate status unchanged.** G1 is **not approved** until independent review;
+  G0 remains **PARTIAL** (production restore/checksum, identity collision
+  report, named owner/reviewer); G2 and every production tenant change stay
+  blocked. No `/api/v2` endpoint, migration `014+` or v1.5 schema change was
+  made. No commit or push.
+
 ## 2026-11-08 (G0 local verification + G1 POC authorization)
 
 - **Checkpoint committed.** `a52acd9` — `chore(phase20): checkpoint v2 UI and

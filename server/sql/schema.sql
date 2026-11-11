@@ -7,12 +7,69 @@ CREATE TABLE schema_migrations (
   applied_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Tenant root (migration 014). The internal ParaRobo row is inserted by the
+-- migration, not by this shape file.
+CREATE TABLE institutions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  name_norm text NOT NULL,
+  slug text NOT NULL UNIQUE,
+  college_code text,
+  type text NOT NULL DEFAULT 'other'
+    CHECK (type IN ('legacy', 'school', 'college', 'university', 'training', 'other')),
+  review_state text NOT NULL DEFAULT 'approved'
+    CHECK (review_state IN ('pending', 'info_requested', 'approved', 'rejected')),
+  admin_state text NOT NULL DEFAULT 'enabled'
+    CHECK (admin_state IN ('enabled', 'suspended', 'archived')),
+  admin_state_reason text,
+  suspended_at timestamptz,
+  archived_at timestamptz,
+  is_internal boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE institution_contacts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  institution_id uuid NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  email text NOT NULL,
+  email_norm text NOT NULL,
+  phone text,
+  role text NOT NULL DEFAULT 'primary'
+    CHECK (role IN ('primary', 'billing', 'technical', 'other')),
+  is_primary boolean NOT NULL DEFAULT false,
+  verified_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (institution_id, id)
+);
+
+CREATE UNIQUE INDEX idx_institution_contacts_primary
+  ON institution_contacts (institution_id)
+  WHERE is_primary;
+
+CREATE TABLE tenant_domains (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  institution_id uuid NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+  hostname text NOT NULL,
+  hostname_norm text NOT NULL,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'verified', 'disabled')),
+  verified_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (hostname_norm),
+  UNIQUE (institution_id, id)
+);
+
 CREATE TABLE admins (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text UNIQUE NOT NULL,
   password_hash text NOT NULL,
   name text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE exam_events (
@@ -40,7 +97,8 @@ CREATE TABLE exam_events (
   results_published boolean NOT NULL DEFAULT false,
   results_published_at timestamptz,
   results_published_by text,
-  results_expires_at timestamptz
+  results_expires_at timestamptz,
+  institution_id uuid
 );
 
 CREATE TABLE roster_emails (
@@ -52,6 +110,7 @@ CREATE TABLE roster_emails (
   removed_at timestamptz,
   removed_reason text,
   removed_by text,
+  institution_id uuid,
   UNIQUE (event_id, email)
 );
 
@@ -64,7 +123,8 @@ CREATE TABLE skills (
   name text NOT NULL,
   category text NOT NULL,
   description text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE questions (
@@ -74,7 +134,8 @@ CREATE TABLE questions (
   difficulty int NOT NULL DEFAULT 3 CHECK (difficulty BETWEEN 1 AND 5),
   active boolean NOT NULL DEFAULT true,
   source_key text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE question_variants (
@@ -82,7 +143,8 @@ CREATE TABLE question_variants (
   question_id uuid NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   stem text NOT NULL,
   options text[] NOT NULL,
-  correct_idx int NOT NULL CHECK (correct_idx BETWEEN 0 AND 3)
+  correct_idx int NOT NULL CHECK (correct_idx BETWEEN 0 AND 3),
+  institution_id uuid
 );
 
 CREATE TABLE papers (
@@ -115,6 +177,7 @@ CREATE TABLE papers (
   -- The graded result, frozen at submission (008).
   result_snapshot jsonb,
   result_graded_at timestamptz,
+  institution_id uuid,
   UNIQUE (event_id, email)
 );
 
@@ -126,6 +189,7 @@ CREATE TABLE paper_sections (
   started_at timestamptz,
   ends_at timestamptz,
   completed_at timestamptz,
+  institution_id uuid,
   PRIMARY KEY (paper_id, category),
   UNIQUE (paper_id, position)
 );
@@ -135,6 +199,7 @@ CREATE TABLE answers (
   qno int NOT NULL,
   choice int NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid,
   PRIMARY KEY (paper_id, qno)
 );
 
@@ -150,6 +215,7 @@ CREATE TABLE paper_questions (
   difficulty int NOT NULL DEFAULT 3 CHECK (difficulty BETWEEN 1 AND 5),
   -- The domain (the category) of the question, frozen with the paper (005).
   category text,
+  institution_id uuid,
   PRIMARY KEY (paper_id, qno)
 );
 
@@ -160,7 +226,8 @@ CREATE TABLE warnings (
   detail jsonb,
   source text NOT NULL DEFAULT 'client',
   client_event_id text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE recordings (
@@ -171,6 +238,7 @@ CREATE TABLE recordings (
   path text NOT NULL,
   mime text NOT NULL DEFAULT 'video/webm',
   created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid,
   UNIQUE (paper_id, chunk_no)
 );
 
@@ -183,7 +251,8 @@ CREATE TABLE flags (
   reason text NOT NULL,
   created_by text NOT NULL DEFAULT 'system',
   resolved boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE tickets (
@@ -192,7 +261,8 @@ CREATE TABLE tickets (
   reason text NOT NULL,
   source text NOT NULL DEFAULT 'contact' CHECK (source IN ('contact','lockout')),
   status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved')),
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE feedback (
@@ -200,7 +270,8 @@ CREATE TABLE feedback (
   paper_id uuid NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
   rating int NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 -- Live proctor event log (R-032 "event log"). Also the durable feed the
@@ -219,7 +290,8 @@ CREATE TABLE proctor_events (
     'resumed','restarted','removed'
   )),
   detail text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE admin_actions (
@@ -231,7 +303,8 @@ CREATE TABLE admin_actions (
   target_email text,
   reason text,
   detail jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE TABLE paper_attempt_history (
@@ -251,7 +324,8 @@ CREATE TABLE paper_attempt_history (
   ended_at timestamptz,
   reason text,
   created_by text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  institution_id uuid
 );
 
 CREATE INDEX idx_warnings_paper ON warnings (paper_id, created_at);
@@ -278,3 +352,36 @@ CREATE INDEX idx_admin_actions_created ON admin_actions (created_at DESC);
 CREATE INDEX idx_admin_actions_event ON admin_actions (event_id, created_at DESC);
 CREATE INDEX idx_admin_actions_paper ON admin_actions (paper_id, created_at DESC);
 CREATE INDEX idx_paper_attempt_history_paper ON paper_attempt_history (paper_id, created_at DESC);
+
+-- Institution foundation (migration 014). The columns stay nullable until the
+-- G2 backfill is validated; composite keys are the targets for composite FKs.
+CREATE UNIQUE INDEX idx_admins_institution_id ON admins (institution_id, id);
+CREATE UNIQUE INDEX idx_exam_events_institution_id ON exam_events (institution_id, id);
+CREATE UNIQUE INDEX idx_roster_emails_institution_id ON roster_emails (institution_id, id);
+CREATE UNIQUE INDEX idx_skills_institution_id ON skills (institution_id, id);
+CREATE UNIQUE INDEX idx_questions_institution_id ON questions (institution_id, id);
+CREATE UNIQUE INDEX idx_question_variants_institution_id ON question_variants (institution_id, id);
+CREATE UNIQUE INDEX idx_papers_institution_id ON papers (institution_id, id);
+CREATE UNIQUE INDEX idx_paper_sections_institution_paper_category ON paper_sections (institution_id, paper_id, category);
+CREATE UNIQUE INDEX idx_answers_institution_paper_qno ON answers (institution_id, paper_id, qno);
+CREATE UNIQUE INDEX idx_paper_questions_institution_paper_qno ON paper_questions (institution_id, paper_id, qno);
+CREATE UNIQUE INDEX idx_warnings_institution_id ON warnings (institution_id, id);
+CREATE UNIQUE INDEX idx_recordings_institution_id ON recordings (institution_id, id);
+CREATE UNIQUE INDEX idx_flags_institution_id ON flags (institution_id, id);
+CREATE UNIQUE INDEX idx_tickets_institution_id ON tickets (institution_id, id);
+CREATE UNIQUE INDEX idx_feedback_institution_id ON feedback (institution_id, id);
+CREATE UNIQUE INDEX idx_proctor_events_institution_id ON proctor_events (institution_id, id);
+CREATE UNIQUE INDEX idx_admin_actions_institution_id ON admin_actions (institution_id, id);
+CREATE UNIQUE INDEX idx_paper_attempt_history_institution_id ON paper_attempt_history (institution_id, id);
+
+CREATE INDEX idx_papers_institution_event ON papers (institution_id, event_id);
+CREATE INDEX idx_roster_emails_institution_event ON roster_emails (institution_id, event_id);
+CREATE INDEX idx_questions_institution_skill ON questions (institution_id, skill_id);
+CREATE INDEX idx_question_variants_institution_question ON question_variants (institution_id, question_id);
+CREATE INDEX idx_proctor_events_institution_event ON proctor_events (institution_id, event_id, created_at DESC);
+CREATE INDEX idx_admin_actions_institution_created ON admin_actions (institution_id, created_at DESC);
+CREATE INDEX idx_skills_institution_code ON skills (institution_id, code);
+CREATE INDEX idx_questions_institution_source_key ON questions (institution_id, source_key)
+  WHERE source_key IS NOT NULL;
+CREATE INDEX idx_institution_contacts_institution ON institution_contacts (institution_id);
+CREATE INDEX idx_tenant_domains_institution ON tenant_domains (institution_id);

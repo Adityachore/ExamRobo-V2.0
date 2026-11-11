@@ -206,6 +206,24 @@ v1.5.0 (`Brain/VERSION`)
   array, so two events cannot leak a chosen domain into each other.
 
 ## Verified (current)
+- **2026-11-08 (G2 migration 014):** `014_institution_foundation.sql` applied to
+  scratch and old-shape databases; legacy `ParaRobo` institution present, 20
+  `institution_id` columns, no null tenant rows, ledger 14 and second run
+  `no migrations to apply`. Fixture backfill mapped all 18 tenant tables; seed
+  and 1100-question bank import wrote the legacy key with zero nulls.
+  `node --test` **167/167 pass**. `schema.sql` mirrors the new shape.
+  `npm run verify` PASS on all four phases with smoke **187/187** when
+  `VERIFY_PG_URL` points at `127.0.0.1` (Docker is IPv4-only).
+- **2026-11-08 (G1 isolated proof):** `cd server && npm run test:g1` PASS,
+  **24/24** on disposable PostgreSQL 16.15 (`examrobo_g1_test`, dropped after
+  the run). Covers ROLE-01..08 and SEC-001..016. Evidence:
+  `docs/phase2/evidence/g1/` (`test-output.txt`, `results.json`,
+  `role-report.json`, `README.md`, `THREAT-MODEL.md`, `REVIEWER-REPORT.md`).
+  Gate protocol `docs/phase2/GATE-REVIEW-PROTOCOL.md` and test plans
+  `docs/phase2/test-plans/G0..G5-TEST-CASES.md` now require implement-first,
+  then execute, then independent review. G1 is **awaiting independent review**,
+  not approved. G2 implementation started on 2026-11-08 under the owner's
+  scope-limited waiver; G2 gate is not approved.
 - **2026-11-08 (G0-local):** `cd server && npm run verify` PASS on a clean tree
   at `1791455` — preflight PG + Redis, unit, web build, smoke 187/187. Evidence:
   `docs/phase2/evidence/baseline.md`. G0 gate is still **partial**.
@@ -229,8 +247,17 @@ v1.5.0 (`Brain/VERSION`)
 - G0 is **partial**, not green: the four-phase local verify is green, but
   production-like restore, identity collision report and named reviewers are not
   recorded.
-- The isolated G1 security POC is authorized (synthetic fixtures only); G2 and
-  every production tenant change remain blocked.
+- The isolated G1 security POC passes 24/24, but is **not approved** until an
+  independent reviewer signs the disposition. G1 remains **VERIFYING**.
+- **G2 implementation is authorized under a scope-limited waiver** (owner
+  directive, 2026-11-08): migrations `014+` on synthetic/scratch databases only;
+  no production schema/data change and no tenant cutover. `014` is implemented
+  and verified but uncommitted. `015` identity control plane waits on the
+  approved login policy and source collision report. G2 is **not approved**;
+  the owner will provide the external G2 test audit after implementation.
+- App write paths still insert tenant rows without `institution_id`; this is
+  expand-phase debt to fix before NOT NULL/RLS enforcement. Seed and bank import
+  already write the legacy key.
 - v2 UI routes are built but contract-only; `/api/v2` is not implemented and
   legacy `/admin/*` routes stay active until parity/cutover.
 - P20-UI-09 browser click-through (public/platform/institution at 320/390/

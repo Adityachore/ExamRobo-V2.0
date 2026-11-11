@@ -5,8 +5,10 @@ and plan limits. Baseline frozen at `v1.5.0-baseline` (`3c6518b`), branch
 `feat/saas-v2`.
 **Authorization:** P20.0 baseline and the isolated G1 security proof
 (`P2-0101`..`P2-0106`) are approved as of 2026-11-06. G1 is limited to an
-isolated, synthetic PostgreSQL 16 harness; G2 and every production tenant change
-require G1 to pass and a separate explicit approval.
+isolated, synthetic PostgreSQL 16 harness and remains **VERIFYING**. On
+2026-11-08 the owner authorized G2 **implementation** on synthetic/scratch
+databases only; G2 is **IN-PROGRESS**, not approved, and every production tenant
+change still requires G1 approval and a separate explicit G2 approval.
 **Authoritative design:** `docs/Brain-Phase2-Production-Ready/` (38 files).
 This file is the Brain entry point and the decision register, not a copy of the
 pack.
@@ -226,8 +228,8 @@ Working-tree decisions taken for the freeze:
 | P20-03 | G0 | Verify with Postgres + Redis up | all four phases PASS | **partial** — local verification green; production-data closure blocked |
 | P20-03a | G0 | Clean tree, four-phase verify, baseline evidence | all four phases PASS + `docs/phase2/evidence/baseline.md` | **DONE** — 4/4 phases green at clean HEAD `1791455`; smoke 187/187 |
 | P20-03b | G0 | Restore production-like backup; identity collision scan; owners/reviewers | restore + collision report accepted | **blocked** — no backup or collision evidence available; G0 stays partial |
-| P20-04 | G1 | Isolated RLS proof: roles, policies, cross-tenant denial, no `BYPASSRLS` | every attack case denied; app role cannot bypass | **authorized** — synthetic POC only; G0 partial waiver recorded; G2 blocked |
-| P20-05 | G2 | Tenant schema, migrations 014+, `ParaRobo` backfill, RLS enforced | migration rehearsal on a restored copy passes; counts match | pending |
+| P20-04 | G1 | Isolated RLS proof: roles, policies, cross-tenant denial, no `BYPASSRLS` | every attack case denied; app role cannot bypass | **passing locally** — 24/24; evidence in `docs/phase2/evidence/g1/`; independent review pending; G1 not approved; G2 implementation authorized only under waiver |
+| P20-05 | G2 | Tenant schema, migrations 014+, `ParaRobo` backfill, RLS enforced | migration rehearsal on a restored copy passes; counts match | **in progress** — `014` implemented, mirrored and scratch-verified; seed/import write legacy key; `015` waits on login policy + collision report; no production schema/data; G2 not approved |
 | P20-06 | G3 | Identity + `/api/v2` + sessions/OTP/PIN + billing/plans + legacy bridge | contract tests, staff/super/student flows, billing/plan tests, `/api` still green | pending |
 | P20-07 | G4 | Privacy/export/purge, India hosting, backup/restore, load/limits | restore rehearsal, 80/100% admission, plan-ceiling proof | pending |
 | P20-08 | G5 | Cutover + rollback rehearsal | production smoke, rollback tested, v1.5 restorable | pending |
@@ -303,12 +305,34 @@ staff MFA, mobile apps.
   created). G0 is therefore **open**, not green.
 - 2026-11-06 authorization: G0 + isolated G1 POC only. G0 is **partial** because
   no production-like backup or legacy collision report is available. G1 uses
-  synthetic fixtures only; G2 remains blocked.
+  synthetic fixtures only.
 - 2026-11-08 G0-local: preflight Postgres PASS, preflight Redis PASS, unit tests
   PASS, web build PASS, smoke test PASS (187/187), repeated on a clean tree at
   `1791455`. Evidence: `docs/phase2/evidence/baseline.md`. Production-data
   closure remains blocked.
-- Next action: build the isolated G1 POC and stop for independent review.
+- 2026-11-08 G1: isolated POC passes **24/24** on PostgreSQL 16.15. Evidence:
+  `docs/phase2/evidence/g1/`. G1 remains **not approved** until independent
+  review.
+- 2026-11-08 G2 `014`: institution foundation implemented on scratch and
+  old-shape databases; legacy `ParaRobo` row, 20 institution columns, zero null
+  tenant rows, ledger 14 and idempotent second run. Fixture backfill mapped all
+  18 tenant tables; seed and 1100-question import wrote the legacy key. Unit
+  tests **167/167**. `schema.sql` mirrors the shape. Uncommitted.
+- 2026-11-08 gate test protocol: `docs/phase2/GATE-REVIEW-PROTOCOL.md` now
+  requires implement -> freeze SHA -> execute every `TEST-CASES.md` case ->
+  independent review. Per-gate plans are in `docs/phase2/test-plans/`; the G1
+  reviewer handoff is `docs/phase2/evidence/g1/REVIEWER-REPORT.md`.
+- 2026-11-08 owner directive: **"go for g2 I will provide test audit at last."**
+  This authorizes G2 implementation to begin under a **scope-limited waiver**:
+  migrations/routes may be written and rehearsed on synthetic/scratch databases,
+  but no production schema change, no production data backfill and no tenant
+  cutover may run. It does **not** approve G1 or G2. G1 remains **VERIFYING**
+  until independent review; G2 acceptance still requires the documented test
+  plan, evidence and independent review. The owner will provide the external G2
+  test audit after implementation.
+- Next action: finish `014` hygiene, then `015` identity control plane once the
+  approved login policy and source collision report exist. G2 remains
+  **IN-PROGRESS**, not approved.
 - Decision amendment (2026-11-06): billing/plans, Owner + Admin billing rights,
   email + SMS contact OTP, plan-table limits with a platform ceiling, and
   billing-record retention on purge are now in v2.0.

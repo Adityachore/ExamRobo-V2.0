@@ -62,3 +62,13 @@ INSERT INTO skills (code, name, category, description) VALUES
   ('business_analysis', 'Business Analysis', 'Business & Data Analyst', 'Requirements, processes and business decisions.'),
   ('data_analysis', 'Data Analysis', 'Business & Data Analyst', 'Cleaning, exploring and explaining data.')
 ON CONFLICT (code) DO NOTHING;
+
+-- Migration 014 adds the tenant key. The taxonomy file itself stays the one
+-- global reference list until the per-institution taxonomy service lands, so
+-- every row it inserts belongs to the internal legacy institution.
+UPDATE skills
+   SET institution_id = i.id
+  FROM institutions i
+ WHERE i.slug = 'pararobo'
+   AND i.is_internal
+   AND skills.institution_id IS NULL;

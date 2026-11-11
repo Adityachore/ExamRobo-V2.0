@@ -26,8 +26,16 @@ the authoritative design is `docs/Brain-Phase2-Production-Ready/`.
   owners/reviewers. → P20-03b.
 - **The docs, decision-lock and v2 UI checkpoint is committed** in `a52acd9`.
   `UI Reference/` is intentionally local-only and ignored.
-- **G1 isolated POC is authorized** (2026-11-06) despite G0's production-data
-  blockers. This is a waiver for the synthetic proof only; G2 remains blocked.
+- **G1 isolated POC passes locally** (24/24) under the 2026-11-06 synthetic-only
+  waiver. Evidence is in `docs/phase2/evidence/g1/` (`test-output.txt`,
+  `results.json`, `role-report.json`, `README.md`, `THREAT-MODEL.md`,
+  `REVIEWER-REPORT.md`). G1 is **not approved** until an independent reviewer
+  signs the disposition.
+- **G2 implementation is authorized under a scope-limited waiver** (owner
+  directive, 2026-11-08): write and rehearse migrations `014+` on synthetic or
+  scratch databases only. No production schema change, data backfill or tenant
+  cutover. This is not G1 or G2 approval; the owner will provide the external G2
+  test audit after implementation.
 - `server/.env` has a stale database password; pass `VERIFY_PG_URL` /
   `VERIFY_REDIS_URL` (host ports 5450 / 6379) for this machine.
 - The live database has no exam event (0 events, 0 papers).

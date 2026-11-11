@@ -297,7 +297,9 @@ The 38-file design pack is `docs/Brain-Phase2-Production-Ready/`; the decision
 register is `Brain/ProjectReview.md`. Gate order is G0 → G1 → G2 → G3 → G4 → G5.
 **G0 (baseline) and the isolated G1 security POC are authorized as of
 2026-11-06. G0 is partial because the production-like restore and collision
-scan are unavailable. G1 is synthetic-only; G2 and production tenant work remain
+scan are unavailable. G1 is synthetic-only and still **VERIFYING**. On
+2026-11-08 the owner authorized G2 implementation on scratch/synthetic databases
+only; G2 is **IN-PROGRESS**, not approved, and production tenant work remains
 blocked.**
 
 | ID | Req | Task | Agent | Depends On | Status |
@@ -307,8 +309,8 @@ blocked.**
 | P20-03 | - | G0 gate: clean tree + four-phase verify + production-data closure | critique-agent | P20-01 | [>] PARTIAL — G0-local is green; production data is blocked |
 | P20-03a | - | G0-local: clean tree, `cd server && npm run verify`, `docs/phase2/evidence/baseline.md` | critique-agent | P20-01 | [X] DONE — 4/4 phases green at clean HEAD `1791455`; smoke 187/187 |
 | P20-03b | - | G0 production data: restore production-like backup, run identity collision scan, name owners/reviewers | senior-devops-engineer-agent | P20-03a | [B] BLOCKED — no backup or collision evidence available |
-| P20-04 | R-101,R-102 | G1 security proof (isolated): DB roles, forced RLS, cross-tenant denial, no runtime `BYPASSRLS` | senior-audit-engineer-agent + senior-backend-engineer-agent | P20-03a | [ ] AUTHORIZED — synthetic POC only; G0 partial waiver recorded; G2 blocked |
-| P20-05 | R-103..R-110 | Tenant schema: migrations 014+ (institutions, principals, per-institution domains/skills, RLS policies, legacy `ParaRobo` backfill) | senior-backend-engineer-agent | P20-04 | [ ] PENDING |
+| P20-04 | R-101,R-102 | G1 security proof (isolated): DB roles, forced RLS, cross-tenant denial, no runtime `BYPASSRLS` | senior-audit-engineer-agent + senior-backend-engineer-agent | P20-03a | [>] VERIFYING — 24/24 PASS; evidence in `docs/phase2/evidence/g1/`; reviewer handoff `REVIEWER-REPORT.md` and `docs/phase2/test-plans/G1-TEST-CASES.md` ready; independent review pending; G1 not approved; G2 implementation authorized only under waiver |
+| P20-05 | R-103..R-110 | Tenant schema: migrations 014+ (institutions, principals, per-institution domains/skills, RLS policies, legacy `ParaRobo` backfill) | senior-backend-engineer-agent | P20-04 | [>] IN-PROGRESS — `014` implemented, mirrored into `schema.sql`, seed/import write the legacy tenant key, scratch/backfill/migration-runner checks pass, unit tests 167/167; `015` waits for approved login policy + collision report; G1 not approved; G2 not approved |
 | P20-06 | R-111..R-125 | Identity + API v2: staff/super/student auth, `/api/v2`, sessions, email+SMS contact OTP, PIN, billing/plans, import, legacy bridge; `/api` exam routes stay compatible | senior-backend-engineer-agent + senior-frontend-engineer-agent | P20-05 | [ ] PENDING |
 | P20-07 | R-126..R-137 | Privacy/ops/capacity: export/purge, retention, India hosting, backup/restore, 80/100% admission, plan/platform ceilings | senior-devops-engineer-agent + performance-optimization-engineer-agent | P20-06 | [ ] PENDING |
 | P20-08 | - | Gates G2–G5: contract tests, load, migration rehearsal, cutover + rollback | technical-lead-agent | P20-04..P20-07 | [ ] PENDING |
